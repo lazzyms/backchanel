@@ -34,7 +34,7 @@ struct ModelPickerView: View {
                     .keyboardShortcut(.defaultAction).disabled(!canContinue || (mode == .settings && choice == models.selected.id))
             }
         }
-        .padding(24).frame(width: mode == .onboarding ? 520 : nil)
+        .padding(mode == .onboarding ? 0 : 24).frame(width: mode == .onboarding ? 512 : nil)
     }
 
     @ViewBuilder

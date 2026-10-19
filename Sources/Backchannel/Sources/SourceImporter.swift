@@ -9,6 +9,9 @@ import UniformTypeIdentifiers
 enum SourceImporter {
     static let supportedTypes: [UTType] = [.plainText, .pdf, .image, UTType("net.daringfireball.markdown") ?? .plainText]
 
+    /// Lower-case extensions `extract` reads without guessing; watched folders import only these.
+    static let supportedExtensions: Set<String> = ["md", "markdown", "txt", "text", "pdf", "png", "jpg", "jpeg", "heic", "tiff", "gif", "webp"]
+
     struct Extracted { let kind: SourceKind; let text: String }
 
     static func extract(from url: URL) async throws -> Extracted {

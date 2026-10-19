@@ -13,6 +13,8 @@ struct Source: Identifiable, Hashable, Sendable {
     var labelRationale: String?
     var projection: CGPoint?
     var createdAt: Date
+    /// The file's modification date when it was imported; watched folders re-import when it moves on.
+    var modifiedAt: Date?
     var url: URL { URL(fileURLWithPath: path) }
 }
 

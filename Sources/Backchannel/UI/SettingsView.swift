@@ -5,13 +5,16 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            Tab("Models", systemImage: "cpu") {
+            Tab("Embedding", systemImage: "point.3.connected.trianglepath.dotted") {
                 ModelPickerView(models: model.models, mode: .settings) { chosen in
-                    Task { await model.library.useModel(chosen) }
+                    Task { await model.useEmbeddingModel(chosen) }
                 }
             }
             Tab("Chat", systemImage: "bubble.left.and.text.bubble.right") {
                 ChatSettingsView(chat: model.chatModels)
+            }
+            Tab("Folders", systemImage: "folder.badge.gearshape") {
+                WatchedFoldersView(watcher: model.watcher)
             }
             Tab("Meetings", systemImage: "waveform") {
                 MeetingSettingsView(session: model.session)
@@ -90,5 +93,46 @@ struct MeetingSettingsView: View {
                 .font(.caption).foregroundStyle(.secondary)
         }
         .formStyle(.grouped)
+    }
+}
+
+/// Folders Backchannel keeps in sync with the library; see `FolderWatcher`.
+struct WatchedFoldersView: View {
+    @Bindable var watcher: FolderWatcher
+
+    var body: some View {
+        Form {
+            Section {
+                if watcher.folders.isEmpty {
+                    Text("No folders yet.").foregroundStyle(.secondary)
+                }
+                ForEach(watcher.folders, id: \.self) { folder in
+                    LabeledContent {
+                        Button("Remove") { watcher.remove(folder) }.controlSize(.small)
+                    } label: {
+                        Label(folder.lastPathComponent, systemImage: "folder")
+                        Text(folder.path).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    }
+                }
+                Button("Add folder…") { pickFolder() }
+            } header: {
+                Text("Watched folders")
+            } footer: {
+                Text("New or changed markdown, text, PDF and image files in these folders are imported and embedded while Backchannel runs, in the background too. Sources added one by one are watched for changes as well. Nothing is removed from the library on its own.")
+            }
+            if let last = watcher.lastScan {
+                LabeledContent("Last scan", value: watcher.scanning ? "Scanning…" : last.formatted(date: .omitted, time: .shortened))
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private func pickFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = true
+        panel.prompt = "Watch"
+        if panel.runModal() == .OK { panel.urls.forEach { watcher.add($0) } }
     }
 }

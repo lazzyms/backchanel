@@ -16,18 +16,20 @@ actor Store {
     // MARK: Sources
 
     func sources() async throws -> [Source] {
-        try await db.query("SELECT id,path,title,kind,text,embedding,label,label_rationale,proj_x,proj_y,created_at FROM sources ORDER BY created_at DESC") { r in
+        try await db.query("SELECT id,path,title,kind,text,embedding,label,label_rationale,proj_x,proj_y,created_at,modified_at FROM sources ORDER BY created_at DESC") { r in
             Source(id: r.int(0), path: r.text(1), title: r.text(2), kind: SourceKind(rawValue: r.text(3)) ?? .text,
                    text: r.text(4), embedding: r.blob(5).floatVector, label: r.optionalText(6), labelRationale: r.optionalText(7),
                    projection: r.optionalText(8) == nil ? nil : CGPoint(x: r.double(8), y: r.double(9)),
-                   createdAt: Date(timeIntervalSince1970: r.double(10)))
+                   createdAt: Date(timeIntervalSince1970: r.double(10)),
+                   modifiedAt: r.optionalText(11).map { _ in Date(timeIntervalSince1970: r.double(11)) })
         }
     }
 
-    func insertSource(path: String, title: String, kind: SourceKind, text: String, embedding: [Float], chunks: [(String, [Float])]) async throws -> Int64 {
+    func insertSource(path: String, title: String, kind: SourceKind, text: String, modifiedAt: Date?, embedding: [Float], chunks: [(String, [Float])]) async throws -> Int64 {
         try await db.run("DELETE FROM sources WHERE path=?", [.text(path)])
-        let id = try await db.run("INSERT INTO sources(path,title,kind,text,embedding,created_at) VALUES(?,?,?,?,?,?)",
-                                  [.text(path), .text(title), .text(kind.rawValue), .text(text), .blob(Data(vector: embedding)), .double(Date().timeIntervalSince1970)])
+        let id = try await db.run("INSERT INTO sources(path,title,kind,text,modified_at,embedding,created_at) VALUES(?,?,?,?,?,?,?)",
+                                  [.text(path), .text(title), .text(kind.rawValue), .text(text), modifiedAt.map { .double($0.timeIntervalSince1970) } ?? .null,
+                                   .blob(Data(vector: embedding)), .double(Date().timeIntervalSince1970)])
         for (i, c) in chunks.enumerated() {
             try await db.run("INSERT INTO chunks(source_id,idx,text,embedding) VALUES(?,?,?,?)",
                              [.int(id), .int(Int64(i)), .text(c.0), .blob(Data(vector: c.1))])

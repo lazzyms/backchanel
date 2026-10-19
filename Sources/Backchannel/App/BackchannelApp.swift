@@ -50,7 +50,9 @@ final class AppModel {
     let models = ModelManager()
     let chatModels = ChatModelManager()
     let capsule = CapsulePanel()
-    var showModelPicker: Bool
+    let watcher: FolderWatcher
+    /// Embedding model, chat model, then watched folders. Shown until finished once, and again if the embedding model goes missing.
+    var showOnboarding: Bool
     var meetings: [Meeting] = []
     var insightCount = 0
     var fatalError: String?
@@ -61,10 +63,22 @@ final class AppModel {
         self.store = store
         library = SourceLibrary(store: store, model: models.selected)
         session = MeetingSession(store: store, chat: chatModels, library: library)
-        showModelPicker = models.needsOnboarding
+        watcher = FolderWatcher(library: library)
+        showOnboarding = models.needsOnboarding || !UserDefaults.standard.bool(forKey: "onboardingDone")
         chat = ChatSession(library: library, store: store, chat: chatModels)
         session.liveQA = LiveQAService(library: library, store: store)
-        Task { await reloadMeetings(); await library.reload() }
+        Task { await reloadMeetings(); await library.reload(); watcher.start() }
+    }
+
+    /// Switches the embedding model, re-embeds, then lets the watcher import what it could not before.
+    func useEmbeddingModel(_ model: EmbeddingModel) async {
+        await library.useModel(model)
+        watcher.start()
+    }
+
+    func finishOnboarding() {
+        UserDefaults.standard.set(true, forKey: "onboardingDone")
+        showOnboarding = false
     }
 
     func reloadMeetings() async {
@@ -148,12 +162,7 @@ struct ContentView: View {
             }
         }
         .toolbar { TranscribeToolbar(model: model) }
-        .sheet(isPresented: $model.showModelPicker) {
-            ModelPickerView(models: model.models) { chosen in
-                model.showModelPicker = false
-                Task { await model.library.useModel(chosen) }
-            }
-        }
+        .sheet(isPresented: $model.showOnboarding) { OnboardingView(model: model) }
         .onChange(of: model.session.state) { _, _ in
             model.syncCapsule()
             if model.session.state == .idle { Task { await model.reloadMeetings() } }

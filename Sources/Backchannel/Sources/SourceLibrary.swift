@@ -16,6 +16,7 @@ final class SourceLibrary {
     private let store: Store
     /// Nil until an EmbeddingGemma model is installed; importing and retrieval then fail with a clear message.
     private var embedder: (any Embedder)?
+    var canImport: Bool { embedder != nil }
 
     init(store: Store, model: EmbeddingModel) {
         self.store = store
@@ -113,8 +114,9 @@ final class SourceLibrary {
                 let extracted = try await SourceImporter.extract(from: url)
                 let v = try await vectors(forText: extracted.text, kind: extracted.kind, at: url)
                 let title = url.deletingPathExtension().lastPathComponent
+                let modified = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
                 let id = try await store.insertSource(path: url.path, title: title, kind: extracted.kind, text: extracted.text,
-                                                      embedding: v.document, chunks: v.chunks)
+                                                      modifiedAt: modified, embedding: v.document, chunks: v.chunks)
                 let l = await Self.label(for: extracted.text, title: title)
                 try await store.setLabel(sourceId: id, label: l.label, rationale: l.rationale)
             } catch {
