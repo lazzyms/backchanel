@@ -1,0 +1,63 @@
+# Meetings: transcribe, recognize speakers, summarize
+
+Start transcribing captures the microphone (labelled with the user's name, default "You") and
+system audio ("Others") with SpeechAnalyzer, writes final lines to `segments`, and never stops on
+its own. Stop ends the meeting, names other voices by speaker recognition (FluidAudio diarization,
+`speakers` table), indexes the transcript into `meeting_chunks`, and writes a summary with the chosen
+chat backend (overview, topics, key points, action items).
+
+## Sub-features
+
+- Start/Stop from the toolbar button, `File › Start transcribing` (⇧⌘R) or the menu bar extra.
+- Live transcript with speaker names; floating capsule with elapsed time.
+- Keep-going checkpoint: when enabled, a chime and prompt every N minutes (Settings › Meetings).
+- Speaker recognition after stop; right-click a line to `Rename “Speaker 1”…` across meetings.
+- Summary tab with `Summarize again`; Insights tab with questions answered live from sources.
+- History: select a past meeting to read transcript, summary and insights; `Delete Meeting` in the
+  row's context menu.
+
+## How to get to it (user POV)
+
+Any page › toolbar `Start transcribing`. Talk or play audio. Toolbar `Stop`. The meeting appears at
+the top of the Meetings list; its Summary tab fills in once the model finishes.
+
+## Driving it with cua-driver
+
+Preconditions: launched and doctor passing (`ui: idle`); microphone permission already granted to
+Backchannel (a first run prompts the user; that dialog belongs to them); a chat backend available
+for the summary; something audible on the system output while recording (for example
+`say -v Samantha "<two or three sentences on a distinctive topic>"`, which the system tap hears as
+"Others"). Note `verify.sh db "select count(*) from meetings"`.
+
+- **Start:** `verify.sh tree "Start transcribing" 40`, click the toolbar button token. Observable:
+  the toolbar button becomes `Stop` with an elapsed clock, the menu bar symbol changes, and
+  `verify.sh db "select id,title from meetings where ended_at is null"` has one row;
+  `verify.sh shot meeting-recording`.
+- **Speak:** run the `say` command, wait 5 s. Observable: transcript lines with name `Others`
+  appear in the tree; `verify.sh db "select speaker,speaker_name,text from segments where meeting_id=<id>"`
+  shows final lines.
+- **Stop:** click the `Stop` toolbar button. Observable: the toolbar shows `Finishing…`, then
+  `Recognizing speakers…`, then `Summarizing…`, then `Start transcribing` again; `ended_at` is set.
+- **Recognition:** `verify.sh db "select distinct speaker_name from segments where meeting_id=<id>"`
+  shows `Speaker N` names (or a known name) instead of `Others` for the system-audio lines, and
+  `verify.sh db "select name from speakers"` grew when the voice was new.
+- **Index and summary:** `verify.sh db "select count(*) from meeting_chunks where meeting_id=<id>"`
+  is at least 1 and `select summary from meetings where id=<id>` contains `**Topics**` and
+  `**Action items**`; the Summary tab shows the same text; `verify.sh shot meeting-summary`.
+
+## Gotchas
+
+- Audio capture is real: a silent system produces an ended meeting with no segments, no speakers,
+  no chunks and no summary. That is a skipped journey (no audio), not a failing app.
+- The system audio tap is a CoreAudio process tap on all output; music or a video playing on the
+  Mac will land in the transcript too.
+- Speaker recognition needs the FluidAudio models under `models/diarization`; they download on first
+  use, so the first stop can take a minute longer. Cross-meeting voice matching uses cosine ≥ 0.75
+  and has not yet been checked on real meetings.
+- Not yet run through this skill (needs audio on the system output while the user works).
+- Sending ⇧⌘R to a background app does not reach the menu; use the toolbar button or
+  `invoke_menu ["File","Start transcribing"]`.
+- The checkpoint prompt only appears after `checkpointMinutes` (10–120); a verification of it
+  means waiting that long, or setting the stepper to 10 minutes first.
+- Start blocks with an alert when the microphone is denied or no speech locale is installed; the
+  alert text names the cause.
