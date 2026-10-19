@@ -4,13 +4,13 @@ import Foundation
 actor Store {
     static let appSupport: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appendingPathComponent("Foresight", isDirectory: true)
+        return base.appendingPathComponent("Backchannel", isDirectory: true)
     }()
 
     private let db: Database
 
     init() throws {
-        db = try Database(url: Store.appSupport.appendingPathComponent("foresight.sqlite"))
+        db = try Database(url: Store.appSupport.appendingPathComponent("backchannel.sqlite"))
     }
 
     // MARK: Sources

@@ -1,4 +1,4 @@
-# Foresight for Mac
+# Backchannel for Mac
 
 A personal, offline meeting companion for Apple-silicon Macs (macOS 27+). It transcribes meetings
 from your microphone and from system audio without joining the call, spots questions as they are
@@ -6,7 +6,7 @@ asked, and answers them from documents you imported. Everything runs on-device.
 
 ## Interface
 
-The window mirrors the original Foresight app: a sidebar with **Meetings**, **Ask**, **Sources** and
+The window mirrors Google AI Edge Foresight: a sidebar with **Meetings**, **Ask**, **Sources** and
 **Stats**, a global **Start transcribing** button in the toolbar (⇧⌘R, also in the File menu and the
 menu bar item), and **Settings** (⌘,) for the embedding model and the keep-going interval. Meetings
 shows the list beside a Transcript / Summary / Insights detail; Ask is the chat with a scope chip
@@ -21,7 +21,7 @@ meetings, recorded time, sources, labels and answered questions.
   cosine 0.55.
 - **Live meetings**: one `SpeechAnalyzer` pipeline for the mic ("You") and one for a CoreAudio
   process tap of all system output ("Others"). Offline after the locale assets are installed.
-- **Announcement**: a tone plus a spoken "Foresight is now transcribing this meeting." before any
+- **Announcement**: a tone plus a spoken "Backchannel is now transcribing this meeting." before any
   audio is captured.
 - **Never stops on its own**: every 30 minutes the capsule asks "Keep going?" with a tone. The
   transcript continues until you press Stop.
@@ -46,14 +46,14 @@ Scripts/build-app.sh
 ```
 
 ```bash
-open build/Foresight.app
+open build/Backchannel.app
 ```
 
 `Scripts/build-app.sh [debug|release]` runs `xcodebuild` on the SwiftPM package and assembles
-`build/Foresight.app` with `Resources/Info.plist`, the MLX Metal shader bundle, an ad-hoc
+`build/Backchannel.app` with `Resources/Info.plist`, the MLX Metal shader bundle, an ad-hoc
 signature and the entitlements. Building needs the Xcode Metal Toolchain once
 (`xcodebuild -downloadComponent MetalToolchain`); the built app does not. Set
-`FORESIGHT_NO_MLX=1` to build without MLX (the Gemma model then shows as "Not in this build").
+`BACKCHANNEL_NO_MLX=1` to build without MLX (the Gemma model then shows as "Not in this build").
 
 ### Embedding models
 
@@ -62,7 +62,7 @@ reopens it. Switching re-embeds every stored source, since vectors from differen
 never mix.
 
 Embeddings are Google's EmbeddingGemma 2 (8-bit MLX weights, 768-dim, multilingual), downloaded
-in-app from Hugging Face into `~/Library/Application Support/Foresight/models/embeddinggemma-2/`:
+in-app from Hugging Face into `~/Library/Application Support/Backchannel/models/embeddinggemma-2/`:
 
 - Text: 320 MB (`text-q8/`). Images and PDF scans are embedded from their OCR text.
 - Text + vision: 514 MB (adds `vision-q8/`, sharing the text weights). Image sources also get a
@@ -70,7 +70,7 @@ in-app from Hugging Face into `~/Library/Application Support/Foresight/models/em
 
 Nothing embeds until a model is installed; the picker stays open on launch until then. Newer
 EmbeddingGemma versions are added as entries in `EmbeddingModel.catalog`
-(`Sources/Foresight/Sources/EmbeddingModels.swift`); `Embedders.make` needs no change.
+(`Sources/Backchannel/Sources/EmbeddingModels.swift`); `Embedders.make` needs no change.
 
 ### Summaries and chat
 
@@ -88,14 +88,14 @@ into `AppIcon.icns` and `Assets.car` inside the app.
 
 ## Data
 
-Everything lives in `~/Library/Application Support/Foresight/foresight.sqlite`
+Everything lives in `~/Library/Application Support/Backchannel/backchannel.sqlite`
 (sources, chunks, meetings, segments, insights). Delete the file to start over.
 
 ## Layout
 
 ```
-Sources/Foresight/
-  App/            ForesightApp (window, Settings scene, menu bar item), AppModel, ContentView (sidebar + pages)
+Sources/Backchannel/
+  App/            BackchannelApp (window, Settings scene, menu bar item), AppModel, ContentView (sidebar + pages)
   Audio/          SystemAudioTap (CoreAudio process tap), MicrophoneCapture, Announcer
   Transcription/  TranscriptionChannel (SpeechAnalyzer + SpeechTranscriber per speaker)
   Meeting/        MeetingSession (state machine, checkpoint prompt, persistence)

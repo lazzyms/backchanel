@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 @main
-struct ForesightApp: App {
+struct BackchannelApp: App {
     @NSApplicationDelegateAdaptor private var delegate: AppDelegate
     @State private var model = AppModel.shared
 
@@ -32,7 +32,7 @@ struct ForesightApp: App {
     }
 }
 
-/// Files dropped on the Dock icon or opened with `open -a Foresight file.md` become sources.
+/// Files dropped on the Dock icon or opened with `open -a Backchannel file.md` become sources.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
         Task { @MainActor in await AppModel.shared.library.importFiles(urls) }
@@ -217,7 +217,7 @@ struct MenuBarView: View {
             Text("Working…")
         }
         Divider()
-        Button("Open Foresight") { NSApp.activate(); openWindow(id: "main") }
-        Button("Quit Foresight") { NSApp.terminate(nil) }
+        Button("Open Backchannel") { NSApp.activate(); openWindow(id: "main") }
+        Button("Quit Backchannel") { NSApp.terminate(nil) }
     }
 }

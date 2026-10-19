@@ -9,13 +9,13 @@ final class SystemAudioTap: @unchecked Sendable {
     private var tap: AudioHardwareTap?
     private var aggregate: AudioHardwareAggregateDevice?
     private var procID: AudioDeviceIOProcID?
-    private let queue = DispatchQueue(label: "dev.maulik.foresight.systemtap")
+    private let queue = DispatchQueue(label: "dev.maulik.backchannel.systemtap")
     private(set) var format: AVAudioFormat?
 
     func start(onBuffer: @escaping @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void) throws {
         let desc = CATapDescription(stereoGlobalTapButExcludeProcesses: [])
         desc.uuid = UUID()
-        desc.name = "Foresight meeting tap"
+        desc.name = "Backchannel meeting tap"
         desc.isPrivate = true
         desc.muteBehavior = .unmuted
         guard let tap = try system.makeProcessTap(description: desc) else { throw AudioError.tapUnavailable }
@@ -24,8 +24,8 @@ final class SystemAudioTap: @unchecked Sendable {
         guard let output = try system.defaultOutputDevice else { throw AudioError.noOutputDevice }
         let outputUID = try output.uid
         let composition: [String: Any] = [
-            kAudioAggregateDeviceNameKey: "Foresight Tap",
-            kAudioAggregateDeviceUIDKey: "dev.maulik.foresight.tap.\(desc.uuid.uuidString)",
+            kAudioAggregateDeviceNameKey: "Backchannel Tap",
+            kAudioAggregateDeviceUIDKey: "dev.maulik.backchannel.tap.\(desc.uuid.uuidString)",
             kAudioAggregateDeviceMainSubDeviceKey: outputUID,
             kAudioAggregateDeviceIsPrivateKey: true,
             kAudioAggregateDeviceIsStackedKey: false,
@@ -64,7 +64,7 @@ enum AudioError: Error, LocalizedError {
     case tapUnavailable, noOutputDevice, aggregateFailed, badFormat, osStatus(OSStatus), micDenied
     var errorDescription: String? {
         switch self {
-        case .tapUnavailable: "Could not create a system audio tap. Allow Foresight under System Settings › Privacy & Security › Screen & System Audio Recording."
+        case .tapUnavailable: "Could not create a system audio tap. Allow Backchannel under System Settings › Privacy & Security › Screen & System Audio Recording."
         case .noOutputDevice: "No default output device."
         case .aggregateFailed: "Could not create the capture device."
         case .badFormat: "Unsupported tap audio format."

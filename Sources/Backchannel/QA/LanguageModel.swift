@@ -107,7 +107,7 @@ enum OnDeviceLM {
     // MARK: Chat
 
     static let chatInstructions = """
-    You are Foresight's assistant on the user's Mac. Answer from the passages and meeting notes supplied with each \
+    You are Backchannel's assistant on the user's Mac. Answer from the passages and meeting notes supplied with each \
     message; they come from the user's own documents and transcripts. Be concise and concrete. Cite the passage \
     titles you used. If the material does not cover the question, say so, then answer from general knowledge \
     only if clearly marked as such.

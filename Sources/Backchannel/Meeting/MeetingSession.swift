@@ -60,7 +60,7 @@ final class MeetingSession {
 
             state = .announcing
             await announcer.playTone()
-            await announcer.speak("Foresight is now transcribing this meeting.")
+            await announcer.speak("Backchannel is now transcribing this meeting.")
 
             try systemTap.start { buffer, time in systemChannel.feed(buffer, at: time) }
             try mic.start { buffer, time in micChannel.feed(buffer, at: time) }

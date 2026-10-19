@@ -15,7 +15,7 @@ struct EmbeddingModel: Identifiable, Hashable, Sendable {
     let name: String
     let summary: String
     let dimension: Int
-    /// Folder under Application Support/Foresight/models shared by variants of one model version.
+    /// Folder under Application Support/Backchannel/models shared by variants of one model version.
     let folder: String
     let files: [RemoteFile]
     /// Subfolder holding the text encoder weights.

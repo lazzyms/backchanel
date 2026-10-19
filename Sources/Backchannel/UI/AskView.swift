@@ -58,7 +58,7 @@ struct AskView: View {
             .help("Which meeting to answer from, besides your sources")
 
             HStack(spacing: 8) {
-                TextField("Ask Foresight about your meetings", text: $draft, axis: .vertical)
+                TextField("Ask Backchannel about your meetings", text: $draft, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...5)
                     .focused($focused)

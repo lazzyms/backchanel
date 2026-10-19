@@ -3,23 +3,23 @@ import PackageDescription
 import Foundation
 
 // EmbeddingGemma 2 runs on MLX, whose Metal shaders need Xcode's Metal Toolchain
-// (`xcodebuild -downloadComponent MetalToolchain`). Set FORESIGHT_NO_MLX=1 to build without it;
+// (`xcodebuild -downloadComponent MetalToolchain`). Set BACKCHANNEL_NO_MLX=1 to build without it;
 // the app then cannot embed sources (the picker shows the models as "Not in this build").
-let withMLX = ProcessInfo.processInfo.environment["FORESIGHT_NO_MLX"] == nil
+let withMLX = ProcessInfo.processInfo.environment["BACKCHANNEL_NO_MLX"] == nil
 
 let package = Package(
-    name: "Foresight",
+    name: "Backchannel",
     platforms: [.macOS("27.0")],
     dependencies: withMLX ? [
         .package(url: "https://github.com/Obscyra-app/EmbeddingGemma2Swift.git", from: "0.1.0"),
     ] : [],
     targets: [
         .executableTarget(
-            name: "Foresight",
+            name: "Backchannel",
             dependencies: withMLX ? [
                 .product(name: "EmbeddingGemma2", package: "EmbeddingGemma2Swift"),
             ] : [],
-            path: "Sources/Foresight",
+            path: "Sources/Backchannel",
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency"),
             ],
