@@ -30,8 +30,11 @@ Stats shows the availability text).
   `press_key` `return` on the same token. Observable: a "thinking" state, then an assistant message
   appears in the tree (`since:"latest"` shows added static text) mentioning the source title or the
   fact; `verify.sh shot ask-answer`.
-- **Scope to a meeting:** `set_value` on the `Scope` popup with a meeting title, ask about that
-  meeting. Observable: the answer draws on that transcript only.
+- **Scope to a meeting:** the `Scope` control is a SwiftUI `Menu` (AXMenuButton), so `set_value`
+  is a no-op: `click` it, then `click` the `AXMenuItem` whose name is the meeting title (match on
+  the time part, e.g. `/4:42/`; the title contains a narrow no-break space U+202F before `PM`).
+  Choosing a scope starts a new conversation. Ask about that meeting. Observable: the answer draws on
+  that transcript (the citation line still lists sources and may name another meeting).
 - **New chat:** press `New chat`. Observable: the messages disappear and the button is disabled.
 
 ## Gotchas
@@ -42,6 +45,10 @@ Stats shows the availability text).
   HTTP error line when the server is down. Gemma needs the 3 GB download first.
 - The answer text is model-dependent; assert that the known source title or fact appears, not an
   exact sentence.
-- Not yet run through this skill; the typing recipe is the `verify.sh run` example in SKILL.md.
+- Proved 2026-10-19 with Apple Intelligence (`build/verify/evidence/proof-2/ask-*`): `Thinking…`
+  then an answer naming the Tidewater source; scoped to the 4:42 PM meeting the answer quoted that
+  transcript; `New chat` emptied the messages and reset the scope to `All sources and meetings`.
+  The typing recipe is the `verify.sh run` example in SKILL.md.
+- `waitFor` accepts at most `timeout_ms: 10000`; loop it for the 10–20 s Apple Intelligence answer.
 - Typing with a background `type_text` relies on AX insertion; if the field stays empty, re-read the
   tree and retry with the token of the field, not of the window.

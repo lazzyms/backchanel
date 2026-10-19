@@ -54,7 +54,11 @@ for the summary; something audible on the system output while recording (for exa
 - Speaker recognition needs the FluidAudio models under `models/diarization`; they download on first
   use, so the first stop can take a minute longer. Cross-meeting voice matching uses cosine ≥ 0.75
   and has not yet been checked on real meetings.
-- Not yet run through this skill (needs audio on the system output while the user works).
+- Skipped 2026-10-19 (`build/verify/evidence/proof-2/meetings-transcribe-skipped.txt`): the only
+  output device was the built-in speakers at volume 100 and the user was working on the Mac, so
+  `say` would have been audible and recording would have captured their microphone. Run this
+  journey when the user is away, or with headphones or a silent output device selected; the
+  Start/Stop mechanics have therefore not been driven through this skill yet.
 - Sending ⇧⌘R to a background app does not reach the menu; use the toolbar button or
   `invoke_menu ["File","Start transcribing"]`.
 - The checkpoint prompt only appears after `checkpointMinutes` (10–120); a verification of it

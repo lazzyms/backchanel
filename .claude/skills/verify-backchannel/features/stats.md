@@ -29,8 +29,13 @@ Preconditions: launched and doctor passing.
 
 ## Gotchas
 
-- Card values are the static text right after each card title in the tree (seen 2026-10-19:
-  `Meetings` `5`, `Sources` `7`, …); the page itself was reached but its counts were not cross-checked
-  through this skill yet.
+- Card values are the static text right after each card title in the tree. Proved 2026-10-19
+  (`build/verify/evidence/proof-2/stats-*`): `Meetings` 5, `Recorded` 02:05, `Sources` 7, `Labels` 7,
+  `Questions answered` 1, all equal to the database queries above; `Models` showed
+  `EmbeddingGemma 2 · text + vision` and `Apple Intelligence` (the backend chosen at the time).
+- `Recorded` is `sum(ended_at - started_at)` over ended meetings, formatted mm:ss. `started_at` and
+  `ended_at` are epoch seconds stored as REAL, so `strftime('%s', ended_at)` returns NULL; use plain
+  subtraction: `verify.sh db "select printf('%02d:%02d', cast(sum(ended_at-started_at) as int)/60,
+  cast(sum(ended_at-started_at) as int)%60) from meetings where ended_at is not null"`.
 - Counts refresh on page entry (`task` reload); after importing or deleting on another page, leave
   and re-enter Stats before comparing.

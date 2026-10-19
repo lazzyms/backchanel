@@ -19,15 +19,25 @@ script() {
   local js="${1//PID/${w%% *}}"; js="${js//WID/${w##* }}"
   python3 -I -c 'import json,sys; print(json.dumps({"session":sys.argv[1],"timeout_ms":60000,"script":sys.argv[2]}))' "$SESSION" "$js"     | cua run_script | python3 -I -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps(d.get("value") if d.get("ok") else {"error":d.get("error")}, indent=1))'
 }
-need_driver() { cua-driver status >/dev/null 2>&1 || { echo "cua-driver daemon is not running (cua-driver status)"; exit 2; }; }
+need_driver() {
+  cua-driver status >/dev/null 2>&1 || { echo "cua-driver daemon is not running (cua-driver status)"; exit 2; }
+  # The driver ends an idle session after a while and then rejects every call that names it; reviving is idempotent.
+  cua start_session "{\"session\":\"$SESSION\"}" >/dev/null
+}
 
 # pid and window_id of the main Backchannel window, as "pid window_id" (empty when not running).
+# Prefers the window recorded by `launch` while it exists (the Settings window is a separate, smaller
+# window of the same app and can be topmost); otherwise the topmost normal-layer window.
 window() {
   cua list_windows '{"app":"Backchannel"}' | python3 -I -c '
-import json,sys
+import json,sys,os
 w=[x for x in json.load(sys.stdin)["windows"] if x["layer"]==0]
 w.sort(key=lambda x:-(x.get("z_index") or 0))
-print(w[0]["pid"], w[0]["window_id"]) if w else None'
+try: want=open(sys.argv[1]).read().split()
+except OSError: want=[]
+for x in w:
+    if want and [str(x["pid"]), str(x["window_id"])]==want: print(x["pid"], x["window_id"]); sys.exit()
+print(w[0]["pid"], w[0]["window_id"]) if w else None' "$STATE"
 }
 
 case "${1:-}" in
@@ -121,7 +131,7 @@ case "${1:-}" in
     else
       echo "no instance launched by verify.sh; nothing to clean up"
     fi
-    rm -f /tmp/backchannel-verify-*.md
+    rm -f /tmp/backchannel-verify-*.md(N)
     echo "evidence kept under $EVIDENCE_ROOT" ;;
 
   *) sed -n '2,3p' "$0"; grep -E '^  [a-z]+\)' "$0" | sed 's/)//'; exit 2 ;;

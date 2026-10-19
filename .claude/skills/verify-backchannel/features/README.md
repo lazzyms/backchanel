@@ -10,7 +10,7 @@ Gotchas rather than softening the journey.
 - `build/Backchannel.app` built from the current source (`verify.sh build`), launched with
   `verify.sh launch`, and `verify.sh doctor` passing.
 - An embedding model installed under `~/Library/Application Support/Backchannel/models` (chosen
-  once in Settings › Models). Without it imports and semantic retrieval fail by design.
+  once in Settings › Embedding). Without it imports and semantic retrieval fail by design.
 - For chat and summaries: the backend chosen in Settings › Chat is available (Apple Intelligence
   enabled on this Mac, or Gemma downloaded, or an endpoint that answers `verify.sh`'s Test).
 - For meetings: microphone access granted to Backchannel and audio actually playing or spoken.
@@ -48,3 +48,4 @@ observable that proves it.
 - [meetings-transcribe.md](meetings-transcribe.md): start and stop a meeting, live transcript, speaker names, summary.
 - [settings-chat-model.md](settings-chat-model.md): choose Apple Intelligence, Gemma 4 or an OpenAI-compatible endpoint; meeting options.
 - [stats.md](stats.md): counts of meetings, sources and insights, and which models are in use.
+- [watched-folders.md](watched-folders.md): folders chosen at onboarding or in Settings › Folders are imported and kept in sync in the background; individually added sources re-import when their file changes.

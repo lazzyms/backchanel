@@ -11,7 +11,7 @@ in the similarity graph.
   opening files with the app (what `verify.sh import` does).
 - List view with title, label and rationale; Graph view (`View` picker) with edges above 0.55 cosine.
 - Context menu per source: `Reveal in Finder`, `Remove from library`.
-- Re-embedding of every source when the embedding model changes (Settings › Models).
+- Re-embedding of every source when the embedding model changes (Settings › Embedding).
 
 ## How to get to it (user POV)
 

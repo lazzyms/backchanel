@@ -34,7 +34,12 @@ All commands are relative to the repo root. The helper is `.claude/skills/verify
    Ready when it prints `launched: pid=<pid> window_id=<id>`: the main window titled `Meetings`
    exists. On first launch with an empty data directory the app creates
    `~/Library/Application Support/Backchannel/backchannel.sqlite`, runs its migrations, and shows the
-   embedding-model picker sheet until a model is chosen and downloaded (about 1 GB, Settings › Models).
+   three-step onboarding sheet (`Embedding model` › `Chat model` › `Watched folders`) until it is
+   finished once (`defaults read dev.maulik.backchannel onboardingDone` is 1) and an embedding model
+   is installed (about 1 GB, Settings › Embedding). To drive past it: `Continue` on step 1 needs a
+   downloaded model, step 2 is `Continue`, step 3 is `Skip` (or `Finish` after adding a folder). To
+   skip it on a machine that already has a model: `defaults write dev.maulik.backchannel onboardingDone -bool true`
+   before `launch`.
    Without an embedding model, imports and semantic search fail with "no model installed", and
    keyword search still works.
 
@@ -101,7 +106,9 @@ Or one flow in a script (what `verify.sh page` does internally):
   const field = st.elements.find(e => e.role === "AXTextField");
   await app.typeText("What is the Tidewater lantern?", field.element_token);
   await app.pressKey("return", field.element_token);
-  await app.waitFor({text: "Tidewater", timeout_ms: 30000});
+  for (let i = 0; i < 4; i++) {           // the driver caps timeout_ms at 10000; loop for longer waits
+    try { await app.waitFor({text: "Tidewater", timeout_ms: 10000}); break; } catch (e) { if (i === 3) throw e; }
+  }
   return (await app.getState({since: "latest", max_elements: 300})).tree_diff;'
 ```
 
@@ -114,7 +121,8 @@ Stable handles in this app (from the accessibility tree of the running build):
 | Meeting list | Meetings page | rows titled `Meeting <date> at <time>` with a subtitle `<date> · mm:ss` |
 | Chat input | Ask page | `AXTextField` placeholder `Ask Backchannel about your meetings`; `New chat` button; `Scope` popup |
 | Source import | Sources page | `Add source` button (opens an NSOpenPanel: use `verify.sh import` instead); `View` picker List / Graph |
-| Settings | app menu `Backchannel › Settings…` or sidebar `Settings` button | window with tabs `Models`, `Chat`, `Meetings` |
+| Settings | app menu `Backchannel › Settings…` or sidebar `Settings` button | window with tabs `Embedding`, `Chat`, `Folders`, `Meetings` |
+| Watched folders | Settings › Folders, onboarding step 3 | `Add folder…` (NSOpenPanel: seed `defaults write dev.maulik.backchannel watchedFolders -array <path>` instead), `Remove` per row, `Last scan` |
 | Menu bar extra | status item | `Start transcribing` / `Stop transcribing`, `Open Backchannel`, `Quit Backchannel` |
 
 Entry points that need no clicking:
@@ -179,6 +187,10 @@ Meetings list (`Delete`) through the UI, or leave them and say so in the report.
 Proven on 2026-10-19 with the `sources-import` journey: launch, doctor, import of a scratch
 markdown file, page change, tree and screenshot evidence, database side effect (`sources` row with
 an Apple Intelligence label and one `chunks` row), cleanup, evidence intact under
-`build/verify/evidence/proof-1/`. The meeting, chat, settings and stats journeys are mapped but not
-yet run through this skill. It needs `cua-driver` (daemon running: `cua-driver status`), `sqlite3`,
+`build/verify/evidence/proof-1/`. Proven on 2026-10-19 under `proof-2/`: `ask-chat`,
+`settings-chat-model` and `stats` (results and gotchas in each feature file); `meetings-transcribe`
+was skipped because audio would have reached the user's speakers while they worked. The driver ends
+an idle session after a while, so `verify.sh` revives it (`start_session`) before every call, and
+it prefers the window recorded by `launch` so an open Settings window is not mistaken for the main
+one. It needs `cua-driver` (daemon running: `cua-driver status`), `sqlite3`,
 `python3` and Xcode 27.
