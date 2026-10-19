@@ -38,6 +38,14 @@ final class SourceLibrary {
                 errorMessage = "\(source.title): \(error.localizedDescription)"
             }
         }
+        // Meeting passages live in the same vector space, so they move with the model too.
+        if let chunks = try? await store.allMeetingChunks() {
+            for chunk in chunks {
+                if let v = try? await next.embed([chunk.text], task: .document).first {
+                    try? await store.updateMeetingChunkEmbedding(id: chunk.id, v)
+                }
+            }
+        }
         await reload()
         await relayout()
     }
@@ -58,6 +66,18 @@ final class SourceLibrary {
         sources = (try? await store.sources()) ?? []
         recomputeEdges()
         await labelMissing()
+        await indexUnindexedMeetings()
+    }
+
+    /// Meetings recorded before indexing existed, or whose indexing was interrupted, get their chunks now.
+    func indexUnindexedMeetings() async {
+        guard let meetings = try? await store.meetings(), let indexed = try? await store.allMeetingChunks() else { return }
+        let done = Set(indexed.map(\.meetingId))
+        for m in meetings where !done.contains(m.id) && m.endedAt != nil {
+            let segments = (try? await store.segments(meetingId: m.id)) ?? []
+            guard !segments.isEmpty else { continue }
+            await indexMeeting(m, segments: segments)
+        }
     }
 
     /// Labels sources that have none yet (imported while Apple Intelligence was unavailable, or before labelling existed).
@@ -110,15 +130,41 @@ final class SourceLibrary {
         await reload()
     }
 
-    /// Top chunks for a query, with their source titles.
-    func retrieve(_ query: String, limit: Int = 5) async throws -> [(title: String, text: String, score: Float)] {
-        guard let embedder else { throw EmbedderError.notInstalled }
-        let q = try await embedder.embed([query], task: .query)[0]
-        let chunks = try await store.allChunks()
+    /// Best passages for a query across every source and every finished meeting: embedding similarity
+    /// plus BM25, fused by rank. Works without an embedding model (keyword search only).
+    func retrieve(_ query: String, limit: Int = 5) async throws -> [RetrievedPassage] {
+        let queryVector = try? await embedder?.embed([query], task: .query).first
         let titles = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0.title) })
-        return chunks.map { (title: titles[$0.sourceId] ?? "?", text: $0.text, score: Vectors.cosine(q, $0.embedding)) }
-            .sorted { $0.score > $1.score }
-            .prefix(limit).map { $0 }
+        var passages = try await store.allChunks().map {
+            Passage(title: titles[$0.sourceId] ?? "?", text: $0.text, embedding: $0.embedding)
+        }
+        let meetings = Dictionary(uniqueKeysWithValues: try await store.meetings().map { ($0.id, $0) })
+        passages += try await store.allMeetingChunks().map {
+            let m = meetings[$0.meetingId]
+            let title = m.map { "\($0.title) · \($0.startedAt.formatted(date: .abbreviated, time: .omitted))" } ?? "Meeting"
+            return Passage(title: title, text: $0.text, embedding: $0.embedding)
+        }
+        return Retrieval.search(query: query, queryVector: queryVector, passages: passages, limit: limit)
+    }
+
+    /// Makes a finished meeting searchable: the transcript in windows that keep speaker names and the
+    /// meeting date, plus the summary. Called when a meeting stops and whenever its summary is rewritten.
+    func indexMeeting(_ meeting: Meeting, segments: [TranscriptSegment]) async {
+        let day = meeting.startedAt.formatted(.dateTime.weekday(.wide).month(.wide).day().year())
+        let header = "Meeting “\(meeting.title)” on \(day)."
+        var texts: [String] = []
+        var window = ""
+        for seg in segments where seg.isFinal {
+            let line = "\(seg.name): \(seg.text)"
+            if window.count + line.count > 900, !window.isEmpty { texts.append(header + "\n" + window); window = "" }
+            window += (window.isEmpty ? "" : "\n") + line
+        }
+        if !window.isEmpty { texts.append(header + "\n" + window) }
+        if let summary = meeting.summary { texts.append(header + "\nSummary:\n" + summary) }
+        let vectors: [[Float]?]
+        if let embedder, let vs = try? await embedder.embed(texts, task: .document) { vectors = vs }
+        else { vectors = [[Float]?](repeating: nil, count: texts.count) }
+        try? await store.replaceMeetingChunks(meetingId: meeting.id, Array(zip(texts, vectors)))
     }
 
     // MARK: Graph

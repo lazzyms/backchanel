@@ -12,7 +12,7 @@ final class LiveQAService: LiveQA, @unchecked Sendable {
     }
 
     func consider(_ segment: TranscriptSegment, in meeting: Meeting, session: MeetingSession) async {
-        recent.append("\(segment.speaker.rawValue): \(segment.text)")
+        recent.append("\(segment.name): \(segment.text)")
         if recent.count > 12 { recent.removeFirst() }
         guard looksLikeQuestion(segment.text), OnDeviceLM.isAvailable else { return }
         guard let check = try? await OnDeviceLM.detectQuestion(segment.text, recent: recent), check.isQuestion else { return }
@@ -21,7 +21,7 @@ final class LiveQAService: LiveQA, @unchecked Sendable {
         answered.insert(key)
         do {
             let hits = try await library.retrieve(check.question, limit: 4)
-            guard let best = hits.first, best.score > 0.25 else { return }
+            guard let best = hits.first, best.similarity > 0.25 || best.lexical > 4 else { return }
             let answer = try await OnDeviceLM.answer(question: check.question, passages: hits.map { ($0.title, $0.text) })
             let titles = Array(Set(hits.map(\.title)))
             let insight = try await store.appendInsight(meetingId: meeting.id, question: check.question, answer: answer, sourceTitles: titles)

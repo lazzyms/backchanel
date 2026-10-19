@@ -97,14 +97,66 @@ actor Store {
     }
 
     func appendSegment(meetingId: Int64, _ s: TranscriptSegment) async throws {
-        try await db.run("INSERT INTO segments(meeting_id,speaker,text,start_sec,end_sec) VALUES(?,?,?,?,?)",
-                         [.int(meetingId), .text(s.speaker.rawValue), .text(s.text), .double(s.startSec), .double(s.endSec)])
+        try await db.run("INSERT INTO segments(meeting_id,speaker,speaker_name,text,start_sec,end_sec) VALUES(?,?,?,?,?,?)",
+                         [.int(meetingId), .text(s.speaker.rawValue), .text(s.name), .text(s.text), .double(s.startSec), .double(s.endSec)])
     }
 
     func segments(meetingId: Int64) async throws -> [TranscriptSegment] {
-        try await db.query("SELECT speaker,text,start_sec,end_sec FROM segments WHERE meeting_id=? ORDER BY start_sec", [.int(meetingId)]) { r in
+        try await db.query("SELECT speaker,text,start_sec,end_sec,speaker_name FROM segments WHERE meeting_id=? ORDER BY start_sec", [.int(meetingId)]) { r in
             let sp = Speaker(rawValue: r.text(0)) ?? .them
-            return TranscriptSegment(id: "\(sp.rawValue)-\(r.double(2))", speaker: sp, text: r.text(1), startSec: r.double(2), endSec: r.double(3), isFinal: true)
+            return TranscriptSegment(id: "\(sp.rawValue)-\(r.double(2))", speaker: sp, name: r.optionalText(4) ?? sp.rawValue,
+                                     text: r.text(1), startSec: r.double(2), endSec: r.double(3), isFinal: true)
+        }
+    }
+
+    /// Names one stored line after speaker recognition. Lines are addressed by stream and start time.
+    func setSpeakerName(meetingId: Int64, speaker: Speaker, startSec: Double, name: String) async throws {
+        try await db.run("UPDATE segments SET speaker_name=? WHERE meeting_id=? AND speaker=? AND start_sec=?",
+                         [.text(name), .int(meetingId), .text(speaker.rawValue), .double(startSec)])
+    }
+
+    // MARK: Speakers
+
+    func speakers() async throws -> [KnownSpeaker] {
+        try await db.query("SELECT id,name,embedding FROM speakers ORDER BY id") { r in
+            KnownSpeaker(id: r.int(0), name: r.text(1), embedding: r.blob(2).floatVector)
+        }
+    }
+
+    func insertSpeaker(name: String, embedding: [Float]) async throws -> KnownSpeaker {
+        let id = try await db.run("INSERT INTO speakers(name,embedding) VALUES(?,?)", [.text(name), .blob(Data(vector: embedding))])
+        return KnownSpeaker(id: id, name: name, embedding: embedding)
+    }
+
+    func updateSpeakerEmbedding(id: Int64, _ embedding: [Float]) async throws {
+        try await db.run("UPDATE speakers SET embedding=? WHERE id=?", [.blob(Data(vector: embedding)), .int(id)])
+    }
+
+    /// Renames a voice everywhere: the speaker table and every transcript line carrying the old name.
+    func renameSpeaker(from old: String, to new: String) async throws {
+        try await db.run("UPDATE speakers SET name=? WHERE name=?", [.text(new), .text(old)])
+        try await db.run("UPDATE segments SET speaker_name=? WHERE speaker_name=?", [.text(new), .text(old)])
+        try await db.run("UPDATE meeting_chunks SET text=REPLACE(text, ?, ?)", [.text("\n" + old + ": "), .text("\n" + new + ": ")])
+    }
+
+    // MARK: Meeting passages
+
+    func replaceMeetingChunks(meetingId: Int64, _ chunks: [(String, [Float]?)]) async throws {
+        try await db.run("DELETE FROM meeting_chunks WHERE meeting_id=?", [.int(meetingId)])
+        for (i, c) in chunks.enumerated() {
+            try await db.run("INSERT INTO meeting_chunks(meeting_id,idx,text,embedding) VALUES(?,?,?,?)",
+                             [.int(meetingId), .int(Int64(i)), .text(c.0), c.1.map { .blob(Data(vector: $0)) } ?? .null])
+        }
+    }
+
+    func updateMeetingChunkEmbedding(id: Int64, _ embedding: [Float]) async throws {
+        try await db.run("UPDATE meeting_chunks SET embedding=? WHERE id=?", [.blob(Data(vector: embedding)), .int(id)])
+    }
+
+    func allMeetingChunks() async throws -> [MeetingChunk] {
+        try await db.query("SELECT id,meeting_id,text,embedding FROM meeting_chunks") { r in
+            let blob = r.blob(3)
+            return MeetingChunk(id: r.int(0), meetingId: r.int(1), text: r.text(2), embedding: blob.isEmpty ? nil : blob.floatVector)
         }
     }
 

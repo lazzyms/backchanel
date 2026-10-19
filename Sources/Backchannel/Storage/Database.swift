@@ -95,7 +95,10 @@ enum DatabaseError: Error, LocalizedError {
 }
 
 enum Schema {
-    static let migrations = ["ALTER TABLE meetings ADD COLUMN summary TEXT"]
+    static let migrations = [
+        "ALTER TABLE meetings ADD COLUMN summary TEXT",
+        "ALTER TABLE segments ADD COLUMN speaker_name TEXT",
+    ]
     static let sql = """
     CREATE TABLE IF NOT EXISTS sources (
         id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE, title TEXT NOT NULL, kind TEXT NOT NULL,
@@ -115,6 +118,14 @@ enum Schema {
         speaker TEXT NOT NULL, text TEXT NOT NULL, start_sec REAL NOT NULL, end_sec REAL NOT NULL
     );
     CREATE INDEX IF NOT EXISTS segments_meeting ON segments(meeting_id);
+    CREATE TABLE IF NOT EXISTS meeting_chunks (
+        id INTEGER PRIMARY KEY, meeting_id INTEGER NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+        idx INTEGER NOT NULL, text TEXT NOT NULL, embedding BLOB
+    );
+    CREATE INDEX IF NOT EXISTS meeting_chunks_meeting ON meeting_chunks(meeting_id);
+    CREATE TABLE IF NOT EXISTS speakers (
+        id INTEGER PRIMARY KEY, name TEXT NOT NULL, embedding BLOB NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS insights (
         id INTEGER PRIMARY KEY, meeting_id INTEGER NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
         question TEXT NOT NULL, answer TEXT NOT NULL, source_titles TEXT NOT NULL, created_at REAL NOT NULL

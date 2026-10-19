@@ -22,7 +22,7 @@ struct ModelPickerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             if mode == .onboarding { Text("Choose an embedding model").font(.title2.bold()) }
-            Text("Google's EmbeddingGemma 2 turns your sources and questions into vectors for matching, on the GPU, fully on-device. Summaries and chat use Apple Intelligence. Switching later re-embeds your sources.")
+            Text("Google's EmbeddingGemma 2 turns your sources and questions into vectors for matching, on the GPU, fully on-device. Summaries and chat use the model picked under Settings › Chat. Switching later re-embeds your sources.")
                 .foregroundStyle(.secondary)
             VStack(spacing: 10) {
                 ForEach(EmbeddingModel.catalog) { m in row(m) }

@@ -83,7 +83,7 @@ struct MeetingsView: View {
                 header(shown)
                 Divider()
                 switch tab {
-                case .transcript: TranscriptList(session: session)
+                case .transcript: TranscriptList(session: session, userName: MeetingSession.userName)
                 case .summary: summary
                 case .insights: insights
                 }
@@ -112,13 +112,15 @@ struct MeetingsView: View {
     private var summary: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                if session.state == .summarizing {
-                    HStack { ProgressView().controlSize(.small); Text("Writing summary with Apple Intelligence…").foregroundStyle(.secondary) }
+                if session.state == .recognizing {
+                    HStack { ProgressView().controlSize(.small); Text("Recognizing speakers…").foregroundStyle(.secondary) }
+                } else if session.state == .summarizing {
+                    HStack { ProgressView().controlSize(.small); Text("Writing summary with \(model.chatModels.displayName)…").foregroundStyle(.secondary) }
                 } else if let s = session.meeting?.summary {
                     Text(LocalizedStringKey(s)).textSelection(.enabled)
                     Button("Summarize again") { Task { await session.summarize() } }.disabled(session.state != .idle)
-                } else if !OnDeviceLM.isAvailable {
-                    Text(OnDeviceLM.availability ?? "Apple Intelligence is not available.").foregroundStyle(.secondary)
+                } else if let why = model.chatModels.availability {
+                    Text(why).foregroundStyle(.secondary)
                 } else if session.segments.isEmpty {
                     Text("Nothing to summarize yet.").foregroundStyle(.secondary)
                 } else if session.isActive {
@@ -154,20 +156,36 @@ struct MeetingsView: View {
 
 struct TranscriptList: View {
     @Bindable var session: MeetingSession
+    var userName: String
+    @State private var renaming: String?
+    @State private var newName = ""
 
     var body: some View {
         ScrollViewReader { proxy in
             List(session.segments) { seg in
                 HStack(alignment: .top, spacing: 10) {
-                    Text(seg.speaker.rawValue)
+                    Text(seg.name)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(seg.speaker == .me ? Color.accentColor : .secondary)
-                        .frame(width: 52, alignment: .trailing)
+                        .frame(width: 80, alignment: .trailing)
+                        .lineLimit(1)
                     Text(seg.text).foregroundStyle(seg.isFinal ? .primary : .secondary).textSelection(.enabled)
                     Spacer(minLength: 0)
                     Text(seg.startSec.clock).font(.caption2).monospacedDigit().foregroundStyle(.tertiary)
                 }
                 .id(seg.id)
+                .contextMenu {
+                    if seg.speaker == .them, seg.name != Speaker.them.rawValue {
+                        Button("Rename “\(seg.name)”…") { newName = seg.name; renaming = seg.name }
+                    }
+                }
+            }
+            .alert("Rename speaker", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+                TextField("Name", text: $newName)
+                Button("Rename") { if let old = renaming { Task { await session.renameSpeaker(from: old, to: newName) } }; renaming = nil }
+                Button("Cancel", role: .cancel) { renaming = nil }
+            } message: {
+                Text("Applies to every meeting where this voice was recognized.")
             }
             .listStyle(.inset)
             .overlay {

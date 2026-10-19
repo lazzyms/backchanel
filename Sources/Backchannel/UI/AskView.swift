@@ -47,12 +47,12 @@ struct AskView: View {
         VStack(alignment: .leading, spacing: 8) {
             Menu {
                 Picker("Scope", selection: $chat.meeting) {
-                    Text("Sources only").tag(Meeting?.none)
+                    Text("All sources and meetings").tag(Meeting?.none)
                     ForEach(meetings) { m in Text(m.title).tag(Meeting?.some(m)) }
                 }
                 .pickerStyle(.inline)
             } label: {
-                Label(chat.meeting?.title ?? "Sources only", systemImage: "line.3.horizontal.decrease.circle")
+                Label(chat.meeting?.title ?? "All sources and meetings", systemImage: "line.3.horizontal.decrease.circle")
             }
             .menuStyle(.button).buttonStyle(.bordered).controlSize(.small).fixedSize()
             .help("Which meeting to answer from, besides your sources")

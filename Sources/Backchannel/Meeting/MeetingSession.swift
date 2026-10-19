@@ -2,12 +2,13 @@ import Foundation
 import AVFoundation
 import Observation
 
-/// Coordinates one live meeting: announcement → capture → transcription → storage.
-/// It never stops on its own. Every `checkpointMinutes` it asks whether to keep going and keeps going.
+/// Coordinates one live meeting: capture → transcription → storage, then on stop speaker
+/// recognition → summary → search index. It never stops on its own. Every `checkpointMinutes`
+/// it asks whether to keep going and keeps going.
 @MainActor
 @Observable
 final class MeetingSession {
-    enum State: Equatable { case idle, preparing, announcing, recording, stopping, summarizing }
+    enum State: Equatable { case idle, preparing, recording, stopping, recognizing, summarizing }
 
     private(set) var state: State = .idle
     private(set) var meeting: Meeting?
@@ -16,25 +17,40 @@ final class MeetingSession {
     private(set) var insights: [Insight] = []
     var errorMessage: String?
 
-    /// Prompt cadence. The prompt only asks; nothing stops unless the user stops it.
-    var checkpointMinutes: Int = 30
+    /// Whether to ask at all, and how often. The prompt only asks; nothing stops unless the user stops it.
+    var checkpointEnabled: Bool = UserDefaults.standard.object(forKey: "checkpointEnabled") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(checkpointEnabled, forKey: "checkpointEnabled"); if !checkpointEnabled { checkpointPromptVisible = false } }
+    }
+    var checkpointMinutes: Int = (UserDefaults.standard.object(forKey: "checkpointMinutes") as? Int).map { max(10, $0) } ?? 30 {
+        didSet { UserDefaults.standard.set(checkpointMinutes, forKey: "checkpointMinutes") }
+    }
     private(set) var checkpointPromptVisible = false
     private var nextCheckpoint: TimeInterval = 0
 
     var liveQA: LiveQA?
 
     private let store: Store
-    private let announcer = Announcer()
+    private let chat: ChatModelManager
+    private let library: SourceLibrary
     private let mic = MicrophoneCapture()
     private let systemTap = SystemAudioTap()
     private var micChannel: TranscriptionChannel?
     private var systemChannel: TranscriptionChannel?
+    private var recorder: SpeakerRecorder?
     private var ticker: Task<Void, Never>?
     private var startDate: Date?
 
-    init(store: Store) { self.store = store }
+    init(store: Store, chat: ChatModelManager, library: SourceLibrary) {
+        self.store = store; self.chat = chat; self.library = library
+    }
 
     var isActive: Bool { state != .idle }
+
+    /// How the user's own lines are labelled; set under Settings › Meetings.
+    static var userName: String {
+        let n = UserDefaults.standard.string(forKey: "userName")?.trimmingCharacters(in: .whitespaces) ?? ""
+        return n.isEmpty ? "You" : n
+    }
 
     func start(title: String) async {
         guard state == .idle else { return }
@@ -49,8 +65,8 @@ final class MeetingSession {
             let meeting = try await store.createMeeting(title: title)
             self.meeting = meeting
 
-            let micChannel = TranscriptionChannel(speaker: .me, locale: locale)
-            let systemChannel = TranscriptionChannel(speaker: .them, locale: locale)
+            let micChannel = TranscriptionChannel(speaker: .me, name: Self.userName, locale: locale)
+            let systemChannel = TranscriptionChannel(speaker: .them, name: Speaker.them.rawValue, locale: locale)
             self.micChannel = micChannel; self.systemChannel = systemChannel
             let handler: @Sendable (TranscriptSegment) -> Void = { [weak self] seg in
                 Task { @MainActor in self?.receive(seg) }
@@ -58,11 +74,12 @@ final class MeetingSession {
             try await micChannel.start(onSegment: handler)
             try await systemChannel.start(onSegment: handler)
 
-            state = .announcing
-            await announcer.playTone()
-            await announcer.speak("Backchannel is now transcribing this meeting.")
-
-            try systemTap.start { buffer, time in systemChannel.feed(buffer, at: time) }
+            let recorder = SpeakerRecorder()
+            self.recorder = recorder
+            try systemTap.start { buffer, time in
+                systemChannel.feed(buffer, at: time)
+                recorder.append(buffer)
+            }
             try mic.start { buffer, time in micChannel.feed(buffer, at: time) }
 
             startDate = Date()
@@ -81,30 +98,70 @@ final class MeetingSession {
     }
 
     func stop() async {
-        guard state == .recording || state == .announcing else { return }
+        guard state == .recording else { return }
         state = .stopping
         await teardown()
+        await recognizeSpeakers()
+        await index()
         await summarize()
     }
 
-    /// Writes the meeting summary with the on-device model. Runs after every stop; can be re-run on history.
+    /// Names the other participants' lines by voice. Errors here are not fatal: lines stay "Others".
+    private func recognizeSpeakers() async {
+        guard state == .idle, let meeting, let audio = recorder?.finish() else { return }
+        recorder = nil
+        defer { try? FileManager.default.removeItem(at: audio) }
+        guard segments.contains(where: { $0.speaker == .them && $0.isFinal }) else { return }
+        state = .recognizing
+        defer { state = .idle }
+        do {
+            let known = try await store.speakers()
+            let result = try await SpeakerRecognizer.recognize(audio: audio, segments: segments, known: known)
+            for (name, emb) in result.newSpeakers { _ = try await store.insertSpeaker(name: name, embedding: emb) }
+            for (id, emb) in result.refreshed { try await store.updateSpeakerEmbedding(id: id, emb) }
+            for i in segments.indices {
+                guard let name = result.names[segments[i].id] else { continue }
+                segments[i].name = name
+                try await store.setSpeakerName(meetingId: meeting.id, speaker: segments[i].speaker, startSec: segments[i].startSec, name: name)
+            }
+        } catch {
+            errorMessage = "Speaker recognition failed: \(error.localizedDescription)"
+        }
+    }
+
+    /// Writes the meeting summary with the chosen chat model. Runs after every stop; can be re-run on history.
     func summarize() async {
-        guard state == .idle, let meeting, OnDeviceLM.isAvailable else { return }
-        let lines = segments.filter(\.isFinal).map { "\($0.speaker.rawValue): \($0.text)" }
+        guard state == .idle, let meeting, chat.isAvailable else { return }
+        let lines = transcriptLines
         guard !lines.isEmpty else { return }
         state = .summarizing
         defer { state = .idle }
         do {
-            let summary = try await OnDeviceLM.summarize(transcript: lines)
+            let summary = try await MeetingSummarizer.summarize(lines, using: chat)
             try await store.setSummary(meetingId: meeting.id, summary)
             self.meeting?.summary = summary
+            await library.indexMeeting(self.meeting!, segments: segments.filter(\.isFinal))
         } catch {
             errorMessage = "Summary failed: \(error.localizedDescription)"
         }
     }
 
+    /// Puts the transcript into the chat's search corpus; the summary is added when it is written.
+    private func index() async {
+        guard let meeting else { return }
+        await library.indexMeeting(meeting, segments: segments.filter(\.isFinal))
+    }
+
     /// Transcript lines for chat and summaries.
-    var transcriptLines: [String] { segments.filter(\.isFinal).map { "\($0.speaker.rawValue): \($0.text)" } }
+    var transcriptLines: [String] { segments.filter(\.isFinal).map { "\($0.name): \($0.text)" } }
+
+    /// Renames a recognised voice everywhere: this transcript, stored lines, the voice library and the search index.
+    func renameSpeaker(from old: String, to new: String) async {
+        let new = new.trimmingCharacters(in: .whitespaces)
+        guard !new.isEmpty, new != old else { return }
+        for i in segments.indices where segments[i].name == old { segments[i].name = new }
+        try? await store.renameSpeaker(from: old, to: new)
+    }
 
     /// The user answered the checkpoint prompt with "keep going". Nothing else changes.
     func continueSession() {
@@ -124,10 +181,10 @@ final class MeetingSession {
     private func tick() async {
         guard let startDate, state == .recording else { return }
         elapsed = Date().timeIntervalSince(startDate)
-        if elapsed >= nextCheckpoint, !checkpointPromptVisible {
+        if checkpointEnabled, elapsed >= nextCheckpoint, !checkpointPromptVisible {
             checkpointPromptVisible = true
             nextCheckpoint = elapsed + TimeInterval(checkpointMinutes * 60)
-            await announcer.playTone()
+            Chime.play()
         }
     }
 

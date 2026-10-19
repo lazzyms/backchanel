@@ -48,6 +48,7 @@ final class AppModel {
     let library: SourceLibrary
     let chat: ChatSession
     let models = ModelManager()
+    let chatModels = ChatModelManager()
     let capsule = CapsulePanel()
     var showModelPicker: Bool
     var meetings: [Meeting] = []
@@ -58,10 +59,10 @@ final class AppModel {
         let store: Store
         do { store = try Store() } catch { fatalError = error.localizedDescription; store = try! Store() }
         self.store = store
-        session = MeetingSession(store: store)
         library = SourceLibrary(store: store, model: models.selected)
+        session = MeetingSession(store: store, chat: chatModels, library: library)
         showModelPicker = models.needsOnboarding
-        chat = ChatSession(library: library, store: store)
+        chat = ChatSession(library: library, store: store, chat: chatModels)
         session.liveQA = LiveQAService(library: library, store: store)
         Task { await reloadMeetings(); await library.reload() }
     }
@@ -82,7 +83,7 @@ final class AppModel {
         case .idle:
             let title = "Meeting " + Date().formatted(date: .abbreviated, time: .shortened)
             Task { await session.start(title: title) }
-        case .recording, .announcing:
+        case .recording:
             Task { await session.stop() }
         default: break
         }
@@ -90,7 +91,7 @@ final class AppModel {
 
     /// Mirrors session state into the floating capsule.
     func syncCapsule() {
-        if session.state == .recording || session.state == .announcing { capsule.show(session: session) }
+        if session.state == .recording { capsule.show(session: session) }
         else { capsule.hide() }
     }
 }
@@ -129,7 +130,7 @@ struct ContentView: View {
                     Label("Powered by \(model.models.selected.name)", systemImage: "cpu")
                         .font(.caption)
                         .fixedSize(horizontal: false, vertical: true)
-                        .help("Embeddings run on this Mac with \(model.models.selected.name). Summaries and chat use Apple Intelligence.")
+                        .help("Embeddings run on this Mac with \(model.models.selected.name). Summaries and chat use \(model.chatModels.displayName).")
                     SettingsLink { Label("Settings", systemImage: "gearshape") }
                         .buttonStyle(.plain)
                         .keyboardShortcut(",", modifiers: .command)
@@ -193,7 +194,7 @@ struct TranscribeToolbar: ToolbarContent {
     private var statusText: String {
         switch model.session.state {
         case .preparing: "Loading speech model…"
-        case .announcing: "Announcing…"
+        case .recognizing: "Recognizing speakers…"
         case .stopping: "Finishing…"
         case .summarizing: "Summarizing…"
         default: ""

@@ -33,6 +33,8 @@ struct Meeting: Identifiable, Hashable, Sendable {
     var summary: String?
 }
 
+/// Which audio stream a line came from. The mic is always the user; system audio is everyone else,
+/// split into named voices after the meeting (see `SpeakerRecognizer`).
 enum Speaker: String, Sendable, Codable {
     case me = "You"
     case them = "Others"
@@ -41,10 +43,28 @@ enum Speaker: String, Sendable, Codable {
 struct TranscriptSegment: Identifiable, Hashable, Sendable {
     var id: String          // "\(speaker)-\(startSec)" keeps volatile → final updates stable
     var speaker: Speaker
+    /// Shown next to the line: the user's name, a recognised voice ("Alice", "Speaker 2") or "Others".
+    var name: String
     var text: String
     var startSec: Double
     var endSec: Double
     var isFinal: Bool
+}
+
+/// A voice heard in earlier meetings, with its wespeaker embedding so it is recognised again.
+struct KnownSpeaker: Identifiable, Sendable {
+    let id: Int64
+    var name: String
+    var embedding: [Float]
+}
+
+/// A searchable window of one meeting's transcript (or its summary), embedded like a source chunk.
+struct MeetingChunk: Identifiable, Sendable {
+    let id: Int64
+    let meetingId: Int64
+    let text: String
+    /// Nil when the chunk was written without an embedding model; BM25 still finds it.
+    let embedding: [Float]?
 }
 
 struct Insight: Identifiable, Hashable, Sendable {

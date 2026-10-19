@@ -62,14 +62,17 @@ enum OnDeviceLM {
     struct Summary {
         @Guide(description: "Two or three sentences saying what the meeting was about and what was concluded")
         var overview: String
+        @Guide(description: "The topics discussed, each two to five words", .count(2...6))
+        var topics: [String]
         @Guide(description: "The main points discussed, each one short sentence", .count(3...8))
         var keyPoints: [String]
-        @Guide(description: "Decisions made or tasks someone agreed to do; empty if none")
+        @Guide(description: "Tasks someone agreed to do, each naming who owns it when the transcript says; empty if none")
         var actionItems: [String]
 
         var markdown: String {
-            var out = overview + "\n\n**Key points**\n" + keyPoints.map { "- " + $0 }.joined(separator: "\n")
-            if !actionItems.isEmpty { out += "\n\n**Action items**\n" + actionItems.map { "- " + $0 }.joined(separator: "\n") }
+            var out = overview + "\n\n**Topics**\n" + topics.map { "- " + $0 }.joined(separator: "\n")
+            out += "\n\n**Key points**\n" + keyPoints.map { "- " + $0 }.joined(separator: "\n")
+            out += "\n\n**Action items**\n" + (actionItems.isEmpty ? "- None" : actionItems.map { "- " + $0 }.joined(separator: "\n"))
             return out
         }
     }
@@ -78,7 +81,7 @@ enum OnDeviceLM {
     /// the window summaries are merged, because the on-device model sees about 4,000 tokens at once.
     static func summarize(transcript lines: [String]) async throws -> String {
         let windows = Self.windows(lines, maxChars: 6000)
-        let instructions = "You write concise, factual meeting summaries from transcripts. 'You' is the user; 'Others' are the other participants. Never invent details."
+        let instructions = summaryInstructions
         if windows.count == 1 {
             let session = LanguageModelSession(instructions: instructions)
             return try await session.respond(to: "Transcript:\n\(windows[0])", generating: Summary.self).content.markdown
@@ -94,7 +97,13 @@ enum OnDeviceLM {
                                          generating: Summary.self).content.markdown
     }
 
-    private static func windows(_ lines: [String], maxChars: Int) -> [String] {
+    static let summaryInstructions = """
+    You write concise, factual meeting summaries from transcripts. Each line starts with the speaker's name; \
+    'Others' means an unidentified other participant. Attribute action items to the named speaker who took them. \
+    Never invent details.
+    """
+
+    static func windows(_ lines: [String], maxChars: Int) -> [String] {
         var out: [String] = [], current = ""
         for line in lines {
             if current.count + line.count > maxChars, !current.isEmpty { out.append(current); current = "" }

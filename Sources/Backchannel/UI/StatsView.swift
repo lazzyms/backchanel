@@ -23,7 +23,7 @@ struct StatsView: View {
                 GroupBox("Models") {
                     VStack(alignment: .leading, spacing: 6) {
                         LabeledContent("Embeddings", value: model.library.embedderName)
-                        LabeledContent("Summaries and chat", value: OnDeviceLM.isAvailable ? "Apple Intelligence (on device)" : (OnDeviceLM.availability ?? "Unavailable"))
+                        LabeledContent("Summaries and chat", value: model.chatModels.availability ?? model.chatModels.displayName)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading).padding(6)
                 }

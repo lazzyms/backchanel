@@ -10,7 +10,7 @@ The window mirrors Google AI Edge Foresight: a sidebar with **Meetings**, **Ask*
 **Stats**, a global **Start transcribing** button in the toolbar (⇧⌘R, also in the File menu and the
 menu bar item), and **Settings** (⌘,) for the embedding model and the keep-going interval. Meetings
 shows the list beside a Transcript / Summary / Insights detail; Ask is the chat with a scope chip
-(sources only, or one meeting); Sources is the library with graph or document view; Stats counts
+(all sources and meetings, or focused on one meeting); Sources is the library with graph or document view; Stats counts
 meetings, recorded time, sources, labels and answered questions.
 
 ## Features
@@ -19,11 +19,15 @@ meetings, recorded time, sources, labels and answered questions.
   images and scanned PDFs), chunked, embedded, and labelled by Apple's on-device language model.
   The graph view places sources by similarity (PCA of their embeddings) and draws edges above
   cosine 0.55.
-- **Live meetings**: one `SpeechAnalyzer` pipeline for the mic ("You") and one for a CoreAudio
-  process tap of all system output ("Others"). Offline after the locale assets are installed.
-- **Announcement**: a tone plus a spoken "Backchannel is now transcribing this meeting." before any
-  audio is captured.
-- **Never stops on its own**: every 30 minutes the capsule asks "Keep going?" with a tone. The
+- **Live meetings**: one `SpeechAnalyzer` pipeline for the mic (your name, set in Settings) and one
+  for a CoreAudio process tap of all system output. Offline after the locale assets are installed.
+  Meetings start and stop silently.
+- **Speaker recognition**: system audio is also written to a 16 kHz WAV during the meeting. On stop,
+  FluidAudio's offline diarizer (pyannote segmentation + WeSpeaker embeddings, Core ML, models
+  downloaded once into Application Support) splits it by voice; each transcript line takes the
+  voice that overlaps it most. Voices are matched against earlier meetings (cosine ≥ 0.75) or named
+  "Speaker N". Right-click a line to rename a voice; the name propagates to every meeting.
+- **Never stops on its own**: every 30 minutes (interval and on/off in Settings › Meetings) the capsule asks "Keep going?" with a chime. The
   transcript continues until you press Stop.
 - **Floating capsule**: a small always-on-top panel (all Spaces, over full-screen apps) with a
   recording dot, elapsed time and a Stop button.
@@ -34,8 +38,9 @@ meetings, recorded time, sources, labels and answered questions.
 ## Requirements
 
 - macOS 27.0 or later, Apple silicon, Xcode 27.1 or later.
-- Apple Intelligence enabled (for labels, live Q&A, meeting summaries and chat; transcription works
-  without it). The on-device model only; Apple exposes no Private Cloud Compute to third-party apps.
+- Apple Intelligence enabled for labels and live Q&A, and for summaries and chat unless another chat
+  model is chosen (transcription works without it). The on-device model only; Apple exposes no
+  Private Cloud Compute to third-party apps.
 - Permissions on first run: Microphone, Speech Recognition, and Screen & System Audio Recording
   (System Settings > Privacy & Security) for the system-audio tap.
 
@@ -74,12 +79,26 @@ EmbeddingGemma versions are added as entries in `EmbeddingModel.catalog`
 
 ### Summaries and chat
 
-Apple's on-device foundation model writes a summary (overview, key points, action items) when a
-meeting stops, stored in the `meetings.summary` column and shown above Live Q&A; "Summarize
-meeting" runs it for older meetings. The Chat section answers multi-turn questions from the top
-EmbeddingGemma matches across your sources plus, if chosen in the scope picker, one meeting's
-summary and transcript tail. Chat history is in memory only. Long transcripts are summarised in
-windows because the model sees about 4,000 tokens at once.
+Settings › Chat picks the model that answers chat and writes summaries:
+
+- **Apple Intelligence**: the on-device foundation model, guided generation for summaries. About
+  4,000 tokens of context, so long transcripts are summarised in windows and merged.
+- **Gemma 4 E2B (on device)**: `mlx-community/gemma-4-e2b-it-4bit` through mlx-swift-lm, downloaded
+  in-app from the Hugging Face Hub into `Application Support/Backchannel/models/hub/` (about 3 GB).
+- **Your own model (API)**: any OpenAI-compatible `/chat/completions` endpoint, local or hosted:
+  base URL, model name and an optional API key. Ollama (`http://localhost:11434/v1`) and LM Studio
+  work offline. The key is stored only in the login Keychain and sent only to that URL.
+
+A summary (overview, topics, key points, action items with owners) is written when a meeting stops
+and stored in `meetings.summary`; "Summarize again" re-runs it for older meetings.
+
+Chat retrieval is hybrid: every passage (source chunks and, after each meeting, ~900-character
+windows of the named transcript plus the summary, in `meeting_chunks`) is scored by BM25 over
+tokens and by cosine similarity of EmbeddingGemma vectors, and the two rankings are fused with
+reciprocal rank fusion (`QA/Retrieval.swift`). The top passages, plus one meeting's summary and
+transcript tail when chosen in the scope picker, go to the chat model with today's date, so
+"what did Alice say on Friday about pricing" resolves by name and date. Chat history is in memory
+only.
 
 ### App icon
 
@@ -89,17 +108,19 @@ into `AppIcon.icns` and `Assets.car` inside the app.
 ## Data
 
 Everything lives in `~/Library/Application Support/Backchannel/backchannel.sqlite`
-(sources, chunks, meetings, segments, insights). Delete the file to start over.
+(sources, chunks, meetings, segments with speaker names, meeting_chunks, speakers with voice
+embeddings, insights). Delete the file to start over. Models live beside it under `models/`.
 
 ## Layout
 
 ```
 Sources/Backchannel/
   App/            BackchannelApp (window, Settings scene, menu bar item), AppModel, ContentView (sidebar + pages)
-  Audio/          SystemAudioTap (CoreAudio process tap), MicrophoneCapture, Announcer
-  Transcription/  TranscriptionChannel (SpeechAnalyzer + SpeechTranscriber per speaker)
-  Meeting/        MeetingSession (state machine, checkpoint prompt, persistence)
-  QA/             OnDeviceLM (FoundationModels: labels, Q&A, summaries), LiveQAService, ChatSession
+  Audio/          SystemAudioTap (CoreAudio process tap), MicrophoneCapture, Chime
+  Transcription/  TranscriptionChannel (SpeechAnalyzer + SpeechTranscriber per stream), SpeakerRecognizer (FluidAudio diarization + WAV recorder)
+  Meeting/        MeetingSession (state machine, checkpoint prompt, stop pipeline: recognize → summarize → index)
+  QA/             OnDeviceLM (FoundationModels: labels, Q&A, summaries), ChatBackend (Apple / Gemma MLX / endpoint + ChatModelManager),
+                  Keychain, Summarizer, Retrieval (BM25 + cosine + RRF), LiveQAService, ChatSession
   Sources/        SourceImporter (extract + chunk), Embedder, EmbeddingModels (catalog + downloads), SourceLibrary
   Storage/        Database (SQLite), Store, Models, Schema.sql
   UI/             MeetingsView, AskView, SourcesView + GraphView, StatsView, SettingsView, CapsulePanel, ModelPickerView

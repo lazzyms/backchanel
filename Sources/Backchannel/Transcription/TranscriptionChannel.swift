@@ -6,6 +6,8 @@ import Speech
 /// Fully offline once the locale assets are installed.
 final class TranscriptionChannel: @unchecked Sendable {
     let speaker: Speaker
+    /// Name written on every line: the user's name for the mic, "Others" for system audio until voices are recognised.
+    let name: String
     private let transcriber: SpeechTranscriber
     private let analyzer: SpeechAnalyzer
     private var converter: AnalyzerInputConverter?
@@ -14,8 +16,9 @@ final class TranscriptionChannel: @unchecked Sendable {
     private var resultsTask: Task<Void, Never>?
     private let lock = NSLock()
 
-    init(speaker: Speaker, locale: Locale) {
+    init(speaker: Speaker, name: String, locale: Locale) {
         self.speaker = speaker
+        self.name = name
         transcriber = SpeechTranscriber(locale: locale,
                                         transcriptionOptions: [],
                                         reportingOptions: [.volatileResults],
@@ -43,7 +46,7 @@ final class TranscriptionChannel: @unchecked Sendable {
         }
         converter = AnalyzerInputConverter(analyzerFormat: format)
         try await analyzer.prepareToAnalyze(in: format)
-        let speaker = self.speaker
+        let speaker = self.speaker, name = self.name
         let transcriber = self.transcriber
         resultsTask = Task.detached {
             do {
@@ -52,7 +55,7 @@ final class TranscriptionChannel: @unchecked Sendable {
                     let end = result.range.end.seconds
                     let text = String(result.text.characters).trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !text.isEmpty else { continue }
-                    onSegment(TranscriptSegment(id: "\(speaker.rawValue)-\(start)", speaker: speaker, text: text,
+                    onSegment(TranscriptSegment(id: "\(speaker.rawValue)-\(start)", speaker: speaker, name: name, text: text,
                                                 startSec: start, endSec: end, isFinal: result.isFinal))
                 }
             } catch {
