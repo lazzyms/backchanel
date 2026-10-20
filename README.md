@@ -44,21 +44,36 @@ meetings, recorded time, sources, labels and answered questions.
 - Permissions on first run: Microphone, Speech Recognition, and Screen & System Audio Recording
   (System Settings > Privacy & Security) for the system-audio tap.
 
-## Build and run
+## Install
 
 ```bash
-Scripts/build-app.sh
+Scripts/install.sh
 ```
 
-```bash
-open build/Backchannel.app
-```
+`Scripts/install.sh` builds a release app with `Scripts/build-app.sh`, copies it to
+`/Applications/Backchannel.app` (or `~/Applications` when `/Applications` is not writable), replacing
+any earlier copy, and registers it with Launch Services. It refuses to replace a copy that is
+running unless you pass `--force`, which quits that copy first. It prints the installed path, the
+version and build number, and the signing identity, and it does not launch the app. Pass `--debug`
+to install a debug build.
+
+The build is signed with the first "Apple Development" identity in your keychain, or with
+`CODESIGN_IDENTITY` when set. A stable identity means macOS keeps the Microphone and Screen & System
+Audio Recording grants across reinstalls. Without an identity the app is signed ad-hoc, and macOS
+asks for both grants again after each reinstall.
+
+Pass `--zip` to also write `build/Backchannel-<version>.zip` for another Mac. The zip is signed
+with a development certificate and not notarized, so the first launch there needs right-click >
+**Open**, or `xattr -dr com.apple.quarantine /Applications/Backchannel.app`.
+
+### Build only
 
 `Scripts/build-app.sh [debug|release]` runs `xcodebuild` on the SwiftPM package and assembles
-`build/Backchannel.app` with `Resources/Info.plist`, the MLX Metal shader bundle, an ad-hoc
-signature and the entitlements. Building needs the Xcode Metal Toolchain once
-(`xcodebuild -downloadComponent MetalToolchain`); the built app does not. Set
-`BACKCHANNEL_NO_MLX=1` to build without MLX (the Gemma model then shows as "Not in this build").
+`build/Backchannel.app` with `Resources/Info.plist`, the MLX Metal shader bundle, the signature
+and the entitlements. `CFBundleVersion` in the built app is the commit count of `HEAD`. Building
+needs the Xcode Metal Toolchain once (`xcodebuild -downloadComponent MetalToolchain`); the built
+app does not. Set `BACKCHANNEL_NO_MLX=1` to build without MLX (the Gemma model then shows as
+"Not in this build").
 
 ### Embedding models
 
