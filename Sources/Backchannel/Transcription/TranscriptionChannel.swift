@@ -19,12 +19,17 @@ final class TranscriptionChannel: @unchecked Sendable {
     init(speaker: Speaker, name: String, locale: Locale) {
         self.speaker = speaker
         self.name = name
-        transcriber = SpeechTranscriber(locale: locale,
-                                        transcriptionOptions: [],
-                                        reportingOptions: [.volatileResults],
-                                        attributeOptions: [.audioTimeRange])
+        transcriber = Self.makeTranscriber(locale: locale)
         analyzer = SpeechAnalyzer(modules: [transcriber])
         (inputSequence, inputBuilder) = AsyncStream.makeStream(of: AnalyzerInput.self)
+    }
+
+    /// The one transcriber configuration, shared with the setup check so both ask for the same assets.
+    static func makeTranscriber(locale: Locale) -> SpeechTranscriber {
+        SpeechTranscriber(locale: locale,
+                          transcriptionOptions: [],
+                          reportingOptions: [.volatileResults],
+                          attributeOptions: [.audioTimeRange])
     }
 
     static func preferredLocale() async -> Locale? {

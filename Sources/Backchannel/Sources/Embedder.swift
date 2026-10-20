@@ -52,7 +52,7 @@ actor GemmaEmbedder: Embedder {
 
 enum EmbedderError: Error, LocalizedError {
     case notInstalled
-    var errorDescription: String? { "No embedding model is installed. Choose one under Models…" }
+    var errorDescription: String? { "No embedding model is installed. Choose one under Settings › Embedding." }
 }
 
 enum Embedders {

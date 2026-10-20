@@ -51,7 +51,8 @@ final class AppModel {
     let chatModels = ChatModelManager()
     let capsule = CapsulePanel()
     let watcher: FolderWatcher
-    /// Embedding model, chat model, then watched folders. Shown until finished once, and again if the embedding model goes missing.
+    let setup: SetupChecker
+    /// Setup, embedding model, chat model, then watched folders. Shown until finished once, and again if the embedding model goes missing.
     var showOnboarding: Bool
     var meetings: [Meeting] = []
     var insightCount = 0
@@ -64,6 +65,7 @@ final class AppModel {
         library = SourceLibrary(store: store, model: models.selected)
         session = MeetingSession(store: store, chat: chatModels, library: library)
         watcher = FolderWatcher(library: library)
+        setup = SetupChecker(session: session)
         showOnboarding = models.needsOnboarding || !UserDefaults.standard.bool(forKey: "onboardingDone")
         chat = ChatSession(library: library, store: store, chat: chatModels)
         session.liveQA = LiveQAService(library: library, store: store)

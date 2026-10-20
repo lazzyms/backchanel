@@ -55,6 +55,15 @@ enum SpeakerRecognizer {
     /// own clustering threshold is about 0.82 cosine; cross-meeting matching is looser on purpose.
     static let matchThreshold: Float = 0.75
 
+    /// Whether `prepareModels(directory:)` would find everything on disk. Mirrors FluidAudio's own
+    /// cache check: every required offline-diarizer file under `<directory>/<repo folder>`.
+    static var modelsInstalled: Bool {
+        let repo = modelsDirectory.appendingPathComponent(Repo.diarizer.folderName, isDirectory: true)
+        return ModelNames.OfflineDiarizer.requiredModels.allSatisfy {
+            FileManager.default.fileExists(atPath: repo.appendingPathComponent($0).path)
+        }
+    }
+
     struct Assignment: Sendable {
         /// Transcript segment id → speaker name.
         var names: [String: String]

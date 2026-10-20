@@ -5,6 +5,9 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
+            Tab("Setup", systemImage: "checklist") {
+                SetupView(checker: model.setup)
+            }
             Tab("Embedding", systemImage: "point.3.connected.trianglepath.dotted") {
                 ModelPickerView(models: model.models, mode: .settings) { chosen in
                     Task { await model.useEmbeddingModel(chosen) }
