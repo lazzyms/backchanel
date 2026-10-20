@@ -34,12 +34,16 @@ All commands are relative to the repo root. The helper is `.claude/skills/verify
    Ready when it prints `launched: pid=<pid> window_id=<id>`: the main window titled `Meetings`
    exists. On first launch with an empty data directory the app creates
    `~/Library/Application Support/Backchannel/backchannel.sqlite`, runs its migrations, and shows the
-   three-step onboarding sheet (`Embedding model` › `Chat model` › `Watched folders`) until it is
-   finished once (`defaults read dev.maulik.backchannel onboardingDone` is 1) and an embedding model
-   is installed (about 1 GB, Settings › Embedding). To drive past it: `Continue` on step 1 needs a
-   downloaded model, step 2 is `Continue`, step 3 is `Skip` (or `Finish` after adding a folder). To
-   skip it on a machine that already has a model: `defaults write dev.maulik.backchannel onboardingDone -bool true`
+   four-step onboarding sheet (`Setup` › `Embedding model` › `Chat model` › `Watched folders`) until
+   it is finished once (`defaults read dev.maulik.backchannel onboardingDone` is 1) and an embedding
+   model is installed (about 1 GB, Settings › Embedding). To drive past it: step 1 (`Get this Mac
+   ready`, see features/setup.md) is always `Continue`, `Continue` on step 2 needs a downloaded
+   model, step 3 is `Continue`, step 4 is `Skip` (or `Finish` after adding a folder). To skip it on
+   a machine that already has a model: `defaults write dev.maulik.backchannel onboardingDone -bool true`
    before `launch`.
+   `launch` opens `build/Backchannel.app` by path (`open -g`), not by bundle id: once
+   `Scripts/install.sh` has put a copy in `/Applications`, Launch Services resolves the bundle id to
+   that copy, and `doctor` then fails with "runs /Applications/...". Never drive the installed copy.
    Without an embedding model, imports and semantic search fail with "no model installed", and
    keyword search still works.
 
@@ -121,8 +125,9 @@ Stable handles in this app (from the accessibility tree of the running build):
 | Meeting list | Meetings page | rows titled `Meeting <date> at <time>` with a subtitle `<date> · mm:ss` |
 | Chat input | Ask page | `AXTextField` placeholder `Ask Backchannel about your meetings`; `New chat` button; `Scope` popup |
 | Source import | Sources page | `Add source` button (opens an NSOpenPanel: use `verify.sh import` instead); `View` picker List / Graph |
-| Settings | app menu `Backchannel › Settings…` or sidebar `Settings` button | window with tabs `Embedding`, `Chat`, `Folders`, `Meetings` |
-| Watched folders | Settings › Folders, onboarding step 3 | `Add folder…` (NSOpenPanel: seed `defaults write dev.maulik.backchannel watchedFolders -array <path>` instead), `Remove` per row, `Last scan` |
+| Settings | app menu `Backchannel › Settings…` or sidebar `Settings` button | window with tabs `Setup`, `Embedding`, `Chat`, `Folders`, `Meetings` |
+| Setup | Settings › Setup, onboarding step 1 | one `LabeledContent` row per item (`Apple Intelligence`, `Microphone`, `Speech model`, `System audio`, `Voice models`) with `Ready`, a progress bar, or a message plus one button (`Allow`, `Download`, `Open System Settings`) |
+| Watched folders | Settings › Folders, onboarding step 4 | `Add folder…` (NSOpenPanel: seed `defaults write dev.maulik.backchannel watchedFolders -array <path>` instead), `Remove` per row, `Last scan` |
 | Menu bar extra | status item | `Start transcribing` / `Stop transcribing`, `Open Backchannel`, `Quit Backchannel` |
 
 Entry points that need no clicking:

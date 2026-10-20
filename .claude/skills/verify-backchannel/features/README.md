@@ -48,4 +48,5 @@ observable that proves it.
 - [meetings-transcribe.md](meetings-transcribe.md): start and stop a meeting, live transcript, speaker names, summary.
 - [settings-chat-model.md](settings-chat-model.md): choose Apple Intelligence, Gemma 4 or an OpenAI-compatible endpoint; meeting options.
 - [stats.md](stats.md): counts of meetings, sources and insights, and which models are in use.
+- [setup.md](setup.md): readiness of Apple Intelligence, microphone, speech model, system audio and voice models, each with its one action; onboarding step 1 and Settings › Setup.
 - [watched-folders.md](watched-folders.md): folders chosen at onboarding or in Settings › Folders are imported and kept in sync in the background; individually added sources re-import when their file changes.

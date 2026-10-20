@@ -1,11 +1,12 @@
 # Settings: chat model and meeting options
 
-Settings (⌘, or `Backchannel › Settings…`) has four tabs. `Embedding` picks the EmbeddingGemma
+Settings (⌘, or `Backchannel › Settings…`) has five tabs. `Setup` is the meeting readiness list
+(see setup.md). `Embedding` picks the EmbeddingGemma
 variant and downloads it (vectors for matching; switching re-embeds everything). `Chat` picks,
 separately, what writes summaries and answers: Apple Intelligence, Gemma 4 E2B through MLX, or
 any OpenAI-compatible endpoint with an optional API key kept in the Keychain. `Folders` lists the
 watched folders (see watched-folders.md). `Meetings` sets the user's name and the keep-going
-checkpoint. The same embedding and chat controls are onboarding steps 1 and 2.
+checkpoint. The same embedding and chat controls are onboarding steps 2 and 3.
 
 ## Sub-features
 
@@ -29,7 +30,7 @@ provides out of band).
 
 - **Open Settings:** `invoke_menu {"pid":PID,"path":["Backchannel","Settings…"]}`. Observable:
   `verify.sh window` still returns the main window; `cua-driver call list_windows '{"app":"Backchannel"}'`
-  now lists a second window titled after the selected tab (`Embedding`, `Chat`, `Folders` or `Meetings`); snapshot
+  now lists a second window titled after the selected tab (`Setup`, `Embedding`, `Chat`, `Folders` or `Meetings`); snapshot
   it with its own window_id; `shot` targets the main window only, so save the settings screenshot
   with `get_window_state … --screenshot-out-file`.
 - **Choose a backend:** click the `Chat` tab, `set_value` the `Answer with` popup. Observable:

@@ -1,7 +1,7 @@
 # Watched folders: import automatically
 
 Backchannel keeps the library in step with the disk while it runs, including in the background
-with the window closed. Two things are watched: the folders chosen at onboarding step 3 or under
+with the window closed. Two things are watched: the folders chosen at onboarding step 4 or under
 Settings › Folders (every supported file in them, recursively, new or changed, is imported and
 embedded), and every source already in the library however it was added (re-imported when its file
 changes). A changed file replaces its `sources` row (same `path`) and its `chunks`. Nothing is ever
@@ -9,7 +9,7 @@ removed from the library on its own.
 
 ## Sub-features
 
-- Onboarding step 3 `Which folders should Backchannel watch?` with `Add folder…`, `Skip` / `Finish`.
+- Onboarding step 4 `Which folders should Backchannel watch?` with `Add folder…`, `Skip` / `Finish`.
 - Settings › Folders: list of folders with `Remove`, `Add folder…`, `Last scan` time.
 - Scan at launch, on every folder-list change, and within a couple of seconds of an FSEvents
   change under a watched folder or under the folder of an individually added source.

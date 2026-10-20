@@ -52,9 +52,9 @@ case "${1:-}" in
       echo "database; refusing to launch a second copy. Use the running instance only if the user said so, or cleanup first."
       exit 3
     fi
-    # LaunchServices must know this build; registering is idempotent and does not activate anything.
-    /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" >/dev/null
-    cua launch_app "{\"bundle_id\":\"$BUNDLE_ID\",\"session\":\"$SESSION\"}" >/dev/null
+    # By path, not bundle id: once Scripts/install.sh has put a copy in /Applications, LaunchServices
+    # resolves the bundle id to that copy instead of this build. -g keeps the app in the background.
+    open -g "$APP"
     for i in {1..30}; do w="$(window)"; [[ -n "$w" ]] && break; sleep 1; done
     [[ -n "${w:-}" ]] || { echo "no Backchannel window after 30 s"; exit 1; }
     mkdir -p "$(dirname "$STATE")"; echo "$w" > "$STATE"
