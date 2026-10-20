@@ -54,6 +54,9 @@ final class AppModel {
     let setup: SetupChecker
     /// Setup, embedding model, chat model, then watched folders. Shown until finished once, and again if the embedding model goes missing.
     var showOnboarding: Bool
+    /// The one window that presents the onboarding sheet. Every main window shares this model, so
+    /// without a host each restored or new window would open its own copy of the sheet.
+    var onboardingHost: UUID?
     var meetings: [Meeting] = []
     var insightCount = 0
     var fatalError: String?
@@ -132,6 +135,7 @@ enum Page: String, CaseIterable, Identifiable {
 struct ContentView: View {
     @Bindable var model: AppModel
     @State private var page: Page? = .meetings
+    @State private var windowID = UUID()
 
     var body: some View {
         NavigationSplitView {
@@ -164,7 +168,10 @@ struct ContentView: View {
             }
         }
         .toolbar { TranscribeToolbar(model: model) }
-        .sheet(isPresented: $model.showOnboarding) { OnboardingView(model: model) }
+        .onAppear { if model.onboardingHost == nil { model.onboardingHost = windowID } }
+        .onDisappear { if model.onboardingHost == windowID { model.onboardingHost = nil } }
+        .sheet(isPresented: Binding(get: { model.showOnboarding && model.onboardingHost == windowID },
+                                    set: { if !$0 { model.showOnboarding = false } })) { OnboardingView(model: model) }
         .onChange(of: model.session.state) { _, _ in
             model.syncCapsule()
             if model.session.state == .idle { Task { await model.reloadMeetings() } }
