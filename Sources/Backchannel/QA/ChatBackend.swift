@@ -11,14 +11,19 @@ import Tokenizers
 
 /// Where chat answers and meeting summaries come from. Retrieval is the same for all three.
 enum ChatBackendKind: String, CaseIterable, Identifiable, Sendable {
-    case apple, gemma, endpoint
+    case apple, mlx, endpoint
     var id: String { rawValue }
     var title: String {
         switch self {
         case .apple: "Apple Intelligence"
-        case .gemma: "Gemma 4 E2B (on device)"
+        case .mlx: "Hugging Face model (on device)"
         case .endpoint: "Your own model (API)"
         }
+    }
+
+    /// Builds before the Hub search stored the on-device choice as "gemma".
+    init(saved: String?) {
+        self = saved == "gemma" ? .mlx : ChatBackendKind(rawValue: saved ?? "") ?? .apple
     }
 }
 
@@ -34,7 +39,7 @@ enum ChatBackendError: Error, LocalizedError {
         case .unavailable(let why): why
         case .http(let code, let body): "The endpoint answered HTTP \(code): \(body.prefix(300))"
         case .badReply: "The endpoint's reply was not an OpenAI-style chat completion."
-        case .notBuilt: "This build was made without MLX, so Gemma cannot run. Pick another chat model."
+        case .notBuilt: "This build was made without MLX, so on-device models cannot run. Pick another chat model."
         }
     }
 }
@@ -112,47 +117,41 @@ actor EndpointConversation: ChatConversation {
     }
 }
 
-// MARK: Gemma 4 on MLX
+// MARK: Hub models on MLX
 
 #if canImport(MLXLLM)
-/// One loaded Gemma 4 E2B (4-bit) shared by every conversation. Weights come from the Hugging Face
-/// Hub into Application Support/Backchannel/models/hub and stay there.
-actor GemmaModel {
-    static let shared = GemmaModel()
-    static let configuration = LLMRegistry.gemma4_e2b_it_4bit
-    static let hubDirectory = Store.appSupport.appendingPathComponent("models/hub", isDirectory: true)
+/// The one loaded on-device chat model, shared by every conversation. Weights come from the Hugging
+/// Face Hub into the shared Hub cache and stay there. Switching repos drops the previous weights.
+actor MLXChatModel {
+    static let shared = MLXChatModel()
 
-    private var container: ModelContainer?
+    private var loaded: (id: String, container: ModelContainer)?
 
-    /// True once the weights are on disk (the Hub cache keeps one snapshot folder per revision).
-    nonisolated static var isInstalled: Bool {
-        let repo = hubDirectory.appendingPathComponent("models--" + Self.configuration.name.replacingOccurrences(of: "/", with: "--") + "/snapshots")
-        guard let snapshots = try? FileManager.default.contentsOfDirectory(atPath: repo.path) else { return false }
-        return snapshots.contains { FileManager.default.fileExists(atPath: repo.appendingPathComponent("\($0)/model.safetensors").path) }
-    }
-
-    func load(progress: @escaping @Sendable (Double) -> Void) async throws -> ModelContainer {
-        if let container { return container }
-        let hub = HubClient(cache: HubCache(cacheDirectory: Self.hubDirectory))
-        let loaded = try await loadModelContainer(
+    func load(_ id: String, progress: @escaping @Sendable (Double) -> Void) async throws -> ModelContainer {
+        if let loaded, loaded.id == id { return loaded.container }
+        loaded = nil
+        let hub = HubClient(cache: HubCache(cacheDirectory: HubCacheFolder.directory))
+        // Registered ids keep their extra EOS tokens (Gemma 4's "<turn|>"); any other repo gets a plain configuration.
+        let container = try await loadModelContainer(
             from: #hubDownloader(hub), using: #huggingFaceTokenizerLoader(),
-            configuration: Self.configuration) { p in progress(p.fractionCompleted) }
-        container = loaded
-        return loaded
+            configuration: LLMModelFactory.shared.configuration(id: id)) { p in progress(p.fractionCompleted) }
+        loaded = (id, container)
+        return container
     }
 }
 
-actor GemmaConversation: ChatConversation {
+actor MLXConversation: ChatConversation {
     /// MLX's session is not Sendable; this actor is its only user, one request at a time.
     private final class Box: @unchecked Sendable { let session: MLXLMCommon.ChatSession; init(_ s: MLXLMCommon.ChatSession) { session = s } }
+    private let modelID: String
     private let instructions: String
     private var box: Box?
 
-    init(instructions: String) { self.instructions = instructions }
+    init(modelID: String, instructions: String) { self.modelID = modelID; self.instructions = instructions }
 
     func send(_ prompt: String) async throws -> String {
         if box == nil {
-            let model = try await GemmaModel.shared.load { _ in }
+            let model = try await MLXChatModel.shared.load(modelID) { _ in }
             box = Box(MLXLMCommon.ChatSession(model, instructions: instructions,
                                               generateParameters: GenerateParameters(maxTokens: 1200, temperature: 0.3)))
         }
@@ -164,25 +163,30 @@ actor GemmaConversation: ChatConversation {
 
 // MARK: Choice and settings
 
-/// The user's chat-model choice and endpoint settings. Backend and endpoint fields persist in
-/// UserDefaults; the API key only ever lives in the Keychain.
+/// The user's chat-model choice, the on-device repos they added from the Hub, and endpoint settings.
+/// All of it persists in UserDefaults except the API key, which only ever lives in the Keychain.
 @MainActor
 @Observable
 final class ChatModelManager {
-    private static let kindKey = "chatBackend", urlKey = "endpointURL", modelKey = "endpointModel", keyAccount = "endpoint-api-key"
+    private static let kindKey = "chatBackend", mlxKey = "mlxModelID", urlKey = "endpointURL", modelKey = "endpointModel", keyAccount = "endpoint-api-key"
 
     var kind: ChatBackendKind { didSet { UserDefaults.standard.set(kind.rawValue, forKey: Self.kindKey) } }
+    /// Repo id of the on-device model; always one of `mlxModels`.
+    var mlxModelID: String { didSet { UserDefaults.standard.set(mlxModelID, forKey: Self.mlxKey) } }
+    /// Gemma 4 plus whatever the user added from the Hub search.
+    private(set) var mlxModels: [HubModel] { didSet { HubCacheFolder.save(mlxModels, for: .chat) } }
     var endpointURL: String { didSet { UserDefaults.standard.set(endpointURL, forKey: Self.urlKey) } }
     var endpointModel: String { didSet { UserDefaults.standard.set(endpointModel, forKey: Self.modelKey) } }
     /// Mirrors the Keychain item; never written anywhere else.
     var apiKey: String { didSet { Keychain.write(apiKey, account: Self.keyAccount) } }
 
-    private(set) var gemmaInstalled: Bool
-    private(set) var downloadingGemma = false
-    private(set) var gemmaProgress: Double = 0
+    /// Repo ids whose weights are in the Hub cache.
+    private(set) var installed: Set<String>
+    private(set) var downloading: String?
+    private(set) var progress: Double = 0
     var error: String?
 
-    static var gemmaSupported: Bool {
+    static var mlxSupported: Bool {
         #if canImport(MLXLLM)
         true
         #else
@@ -192,15 +196,31 @@ final class ChatModelManager {
 
     init() {
         let d = UserDefaults.standard
-        kind = ChatBackendKind(rawValue: d.string(forKey: Self.kindKey) ?? "") ?? .apple
+        kind = ChatBackendKind(saved: d.string(forKey: Self.kindKey))
+        let saved = HubCacheFolder.savedModels(for: .chat)
+        let models = saved.contains { $0.id == HubModel.gemma4.id } ? saved : [HubModel.gemma4] + saved
+        mlxModels = models
+        mlxModelID = d.string(forKey: Self.mlxKey) ?? HubModel.gemma4.id
         endpointURL = d.string(forKey: Self.urlKey) ?? "http://localhost:11434/v1"
         endpointModel = d.string(forKey: Self.modelKey) ?? ""
         apiKey = Keychain.read(Self.keyAccount) ?? ""
-        #if canImport(MLXLLM)
-        gemmaInstalled = GemmaModel.isInstalled
-        #else
-        gemmaInstalled = false
-        #endif
+        installed = Set(models.map(\.id).filter(HubCacheFolder.isInstalled))
+    }
+
+    var mlxModel: HubModel? { mlxModels.first { $0.id == mlxModelID } }
+    var mlxInstalled: Bool { installed.contains(mlxModelID) }
+
+    func addMLXModel(_ model: HubModel) {
+        guard !mlxModels.contains(where: { $0.id == model.id }) else { return }
+        mlxModels.append(model)
+        if HubCacheFolder.isInstalled(model.id) { installed.insert(model.id) }
+    }
+
+    /// The weights stay in the Hub cache; only the row goes. Gemma 4 stays and takes over when the removed model was in use.
+    func removeMLXModel(_ model: HubModel) {
+        guard model.id != HubModel.gemma4.id else { return }
+        mlxModels.removeAll { $0.id == model.id }
+        if mlxModelID == model.id { mlxModelID = HubModel.gemma4.id }
     }
 
     var endpoint: EndpointConfig { EndpointConfig(baseURL: endpointURL, model: endpointModel, apiKey: apiKey.isEmpty ? nil : apiKey) }
@@ -209,9 +229,11 @@ final class ChatModelManager {
     var availability: String? {
         switch kind {
         case .apple: return OnDeviceLM.availability
-        case .gemma:
-            if !Self.gemmaSupported { return ChatBackendError.notBuilt.localizedDescription }
-            return gemmaInstalled ? nil : "Gemma 4 is not downloaded yet. Download it under Settings › Chat."
+        case .mlx:
+            if !Self.mlxSupported { return ChatBackendError.notBuilt.localizedDescription }
+            guard let mlxModel else { return "Pick an on-device model under Settings › Chat." }
+            if !mlxModel.isSupported(for: .chat) { return "\(mlxModel.name) is a \(mlxModel.modelType ?? "unknown") model, which this app cannot run. Pick another under Settings › Chat." }
+            return mlxInstalled ? nil : "\(mlxModel.name) is not downloaded yet. Download it under Settings › Chat."
         case .endpoint:
             if endpoint.chatURL == nil { return "Enter the endpoint URL under Settings › Chat." }
             if endpointModel.trimmingCharacters(in: .whitespaces).isEmpty { return "Enter the model name under Settings › Chat." }
@@ -220,11 +242,11 @@ final class ChatModelManager {
     }
     var isAvailable: Bool { availability == nil }
 
-    /// Short label for the UI, e.g. "Gemma 4 E2B" or "llama3.2 via localhost".
+    /// Short label for the UI, e.g. "gemma-4-e2b-it-4bit" or "llama3.2 via localhost".
     var displayName: String {
         switch kind {
         case .apple: "Apple Intelligence"
-        case .gemma: "Gemma 4 E2B"
+        case .mlx: mlxModel?.name ?? "an on-device model"
         case .endpoint: endpointModel.isEmpty ? "your endpoint" : "\(endpointModel) via \(URL(string: endpointURL)?.host() ?? "endpoint")"
         }
     }
@@ -234,9 +256,9 @@ final class ChatModelManager {
         switch kind {
         case .apple: return AppleConversation(instructions: instructions)
         case .endpoint: return EndpointConversation(config: endpoint, instructions: instructions)
-        case .gemma:
+        case .mlx:
             #if canImport(MLXLLM)
-            return GemmaConversation(instructions: instructions)
+            return MLXConversation(modelID: mlxModelID, instructions: instructions)
             #else
             throw ChatBackendError.notBuilt
             #endif
@@ -248,18 +270,19 @@ final class ChatModelManager {
         try await makeConversation(instructions: instructions).send(prompt)
     }
 
-    func downloadGemma() {
+    /// Downloads and loads the repo once; loading is the proof that this build can run it.
+    func download(_ model: HubModel) {
         #if canImport(MLXLLM)
-        guard !downloadingGemma else { return }
-        downloadingGemma = true; gemmaProgress = 0; error = nil
+        guard downloading == nil else { return }
+        downloading = model.id; progress = 0; error = nil
         Task {
             do {
-                _ = try await GemmaModel.shared.load { p in Task { @MainActor in self.gemmaProgress = p } }
-                gemmaInstalled = true
+                _ = try await MLXChatModel.shared.load(model.id) { p in Task { @MainActor in self.progress = p } }
+                installed.insert(model.id)
             } catch {
-                self.error = "Gemma 4: \(error.localizedDescription)"
+                self.error = "\(model.name): \(error.localizedDescription)"
             }
-            downloadingGemma = false
+            downloading = nil
         }
         #endif
     }

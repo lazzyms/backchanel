@@ -43,20 +43,46 @@ struct ChatSettingsView: View {
                 LabeledContent("Status", value: OnDeviceLM.availability ?? "Ready")
                 Text("Runs on this Mac only. Short context, so long transcripts are summarized in parts.")
                     .font(.caption).foregroundStyle(.secondary)
-            case .gemma:
-                if !ChatModelManager.gemmaSupported {
+            case .mlx:
+                if !ChatModelManager.mlxSupported {
                     Text(ChatBackendError.notBuilt.localizedDescription).foregroundStyle(.secondary)
-                } else if chat.downloadingGemma {
-                    ProgressView("Downloading Gemma 4 E2B (4-bit)…", value: chat.gemmaProgress)
-                } else if chat.gemmaInstalled {
-                    LabeledContent("Status", value: "Downloaded")
                 } else {
-                    LabeledContent("Status") {
-                        Button("Download (about 3 GB)") { chat.downloadGemma() }
+                    Picker("Model", selection: $chat.mlxModelID) {
+                        ForEach(chat.mlxModels) { Text($0.name).tag($0.id) }
                     }
+                    if let m = chat.mlxModel {
+                        LabeledContent("Status") {
+                            if chat.downloading == m.id {
+                                ProgressView(value: chat.progress).frame(width: 140)
+                                Text("\(Int(chat.progress * 100))%").font(.caption.monospacedDigit())
+                            } else if chat.installed.contains(m.id) {
+                                Text("Downloaded")
+                            } else if !m.isSupported(for: .chat) {
+                                Text("Not supported (\(m.modelType ?? "no model_type"))")
+                            } else {
+                                Button(m.id == HubModel.gemma4.id ? "Download (about 3 GB)" : "Download") { chat.download(m) }
+                                    .disabled(chat.downloading != nil).accessibilityLabel("Download \(m.name)")
+                            }
+                        }
+                        LabeledContent("Repo") {
+                            HStack {
+                                Text(m.id).textSelection(.enabled)
+                                if m.id != HubModel.gemma4.id {
+                                    Button("Remove") { chat.removeMLXModel(m) }.controlSize(.small).accessibilityLabel("Remove \(m.name)")
+                                        .help("Remove from this list. Downloaded weights stay in the Hub cache.")
+                                }
+                            }
+                        }
+                    }
+                    Section("Add from Hugging Face") {
+                        HubSearchView(role: .chat, added: Set(chat.mlxModels.map(\.id))) { hub in
+                            chat.addMLXModel(hub)
+                            chat.mlxModelID = hub.id
+                        }
+                    }
+                    Text("Runs on the GPU with MLX. Weights come from the Hugging Face Hub once and stay in Application Support. Gemma 4 E2B is the default; any chat repo tagged mlx whose architecture this app knows can be added.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
-                Text("Google's Gemma 4 E2B runs on the GPU with MLX. Weights come from the Hugging Face Hub once and stay in Application Support.")
-                    .font(.caption).foregroundStyle(.secondary)
             case .endpoint:
                 TextField("Base URL", text: $chat.endpointURL, prompt: Text("http://localhost:11434/v1"))
                 TextField("Model", text: $chat.endpointModel, prompt: Text("llama3.2, gpt-5-mini…"))

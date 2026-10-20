@@ -174,7 +174,7 @@ Proof standards:
   next to what is visible: a source shows in the list *and* has `chunks` rows; a stopped meeting shows
   in the list *and* has `ended_at`, `segments` and `meeting_chunks`.
 - Nothing here is mocked. Chat and summaries call the backend chosen in Settings › Chat (Apple
-  Intelligence on-device, Gemma 4 through MLX, or an OpenAI-compatible endpoint); a verification of
+  Intelligence on-device, a Hugging Face MLX model such as Gemma 4, or an OpenAI-compatible endpoint); a verification of
   those features is a verification against that backend, so name it in the evidence.
 - A journey whose precondition is missing (no embedding model, no chat backend available, no
   microphone access) fails and says why; do not weaken it to pass.

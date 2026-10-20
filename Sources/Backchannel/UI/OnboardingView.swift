@@ -39,7 +39,7 @@ struct OnboardingView: View {
                 Text("Choose a chat model").font(.title2.bold())
                 Text("Answers in Ask, live meeting answers and summaries come from this model. It is separate from the embedding model and can be changed under Settings › Chat.")
                     .foregroundStyle(.secondary)
-                ChatSettingsView(chat: model.chatModels).frame(height: 300)
+                ChatSettingsView(chat: model.chatModels).frame(height: 440)
                 HStack {
                     Button("Back") { step = 1 }
                     Spacer()
