@@ -66,6 +66,18 @@ Pass `--zip` to also write `build/Backchannel-<version>.zip` for another Mac. Th
 with a development certificate and not notarized, so the first launch there needs right-click >
 **Open**, or `xattr -dr com.apple.quarantine /Applications/Backchannel.app`.
 
+### Release
+
+`Scripts/release.sh` builds a release app, zips it, and publishes a GitHub Release tagged
+`v<version>-<build>` with two copies of the zip: `Backchannel.zip` (a stable name, so
+`releases/latest/download/Backchannel.zip` always resolves to the newest build) and
+`Backchannel-<version>-<build>.zip`. It needs a clean working tree and `gh auth login`. Pass
+`--no-build` to package the existing `build/Backchannel.app`, `--dry-run` to see what it would
+publish, `--notes "text"` for custom notes. The landing page under `docs/` is hosted on Netlify at https://backchannel-mac.netlify.app and
+links to those assets; redeploy it with `npx netlify-cli deploy --prod --dir docs --site backchannel-mac`. Releases are signed with
+the Apple Development certificate and not notarized; a Developer ID certificate plus notarization
+is needed before Gatekeeper opens them without right-click > **Open**.
+
 ### Build only
 
 `Scripts/build-app.sh [debug|release]` runs `xcodebuild` on the SwiftPM package and assembles

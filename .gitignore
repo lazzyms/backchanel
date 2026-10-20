@@ -5,3 +5,4 @@ build/
 DerivedData/
 *.app
 .DS_Store
+.netlify/
