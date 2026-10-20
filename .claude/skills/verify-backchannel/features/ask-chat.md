@@ -48,7 +48,13 @@ Stats shows the availability text).
 - Proved 2026-10-19 with Apple Intelligence (`build/verify/evidence/proof-2/ask-*`): `Thinking…`
   then an answer naming the Tidewater source; scoped to the 4:42 PM meeting the answer quoted that
   transcript; `New chat` emptied the messages and reset the scope to `All sources and meetings`.
-  The typing recipe is the `verify.sh run` example in SKILL.md.
+  The typing recipe is the `verify.sh run` example in SKILL.md. Proved again 2026-10-20 (proof-6,
+  `ask-before.png`, `ask-answer.png`, `ask-answer.json`) with Apple Intelligence: the answer gave
+  the pour temperature and curing time from `candle-wax-guide` with a `[1]` citation line. The
+  defaults had `chatBackend` set to `endpoint` with Ollama down and no model name, which fails fast;
+  the run switched it to `apple` with `defaults write dev.maulik.backchannel chatBackend apple`.
+- `waitFor({text})` also matches the question the harness just typed; poll the tree for a fact that
+  only the answer contains instead.
 - `waitFor` accepts at most `timeout_ms: 10000`; loop it for the 10–20 s Apple Intelligence answer.
 - Typing with a background `type_text` relies on AX insertion; if the field stays empty, re-read the
   tree and retry with the token of the field, not of the window.

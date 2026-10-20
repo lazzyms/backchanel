@@ -54,11 +54,18 @@ for the summary; something audible on the system output while recording (for exa
 - Speaker recognition needs the FluidAudio models under `models/diarization`; they download on first
   use, so the first stop can take a minute longer. Cross-meeting voice matching uses cosine ≥ 0.75
   and has not yet been checked on real meetings.
-- Skipped 2026-10-19 (`build/verify/evidence/proof-2/meetings-transcribe-skipped.txt`): the only
-  output device was the built-in speakers at volume 100 and the user was working on the Mac, so
-  `say` would have been audible and recording would have captured their microphone. Run this
-  journey when the user is away, or with headphones or a silent output device selected; the
-  Start/Stop mechanics have therefore not been driven through this skill yet.
+- Skipped 2026-10-19 (proof-2): only the built-in speakers at volume 100 and the user at the Mac.
+  Proved 2026-10-20 (proof-6, `meeting-recording.png`, `meeting-live-transcript.png`,
+  `meeting-summary.png`) with the output volume set to 20 for the run (`osascript -e 'set volume
+  output volume 20'`, restored to 100 after): `say -v Samantha` on the speakers produced four
+  `Others` segments within 8 s, Stop set `ended_at`, speaker recognition renamed them `Speaker 1`
+  and added one `speakers` row, two `meeting_chunks` rows were written, and Apple Intelligence
+  wrote a summary with `**Topics**`, `**Key points**` and `**Action items**`. The whole stop took
+  under two seconds for a 55 s meeting, so a 1 s poll never saw `Finishing…`, `Recognizing
+  speakers…` or `Summarizing…`; treat those labels as optional observables.
+- The microphone is live during the run: whatever is said in the room lands in the transcript as
+  the user's own name, and `say` on speakers can reach it too (the proof-6 lines all came through
+  the system tap as `Others`).
 - Sending ⇧⌘R to a background app does not reach the menu; use the toolbar button or
   `invoke_menu ["File","Start transcribing"]`.
 - The checkpoint prompt only appears after `checkpointMinutes` (10–120); a verification of it

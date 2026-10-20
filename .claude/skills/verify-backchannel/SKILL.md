@@ -84,6 +84,17 @@ raises the app. Rules that matter here:
 - Sidebar rows expose no accessibility action and ignore background pixel clicks. Change page with
   `verify.sh page meetings|ask|sources|stats` (arrow keys on the sidebar outline); the window title
   becomes the page name.
+- In `run_script` element lists (`tree_format: "elements"`) the text of a row is `label`, not
+  `name`; `cua.listWindows` does not exist there, so list windows from the CLI first.
+- A sheet (onboarding) is a separate untitled window in `list_windows`, but its content is only
+  readable inside the hosting main window's tree, as an `AXSheet`.
+- `invoke_menu ["File","Close"]` does not close a window in the background; click the leftmost
+  unlabeled `AXButton` of that window (its traffic-light close) instead, from a tree read with
+  `max_elements` large enough to include the title bar.
+- While a macOS permission prompt for the app is pending, every tree read of the app returns zero
+  elements; screenshots still work. Wait for the user to answer, then read again.
+- `verify.sh shot` writes under `VERIFY_RUN`; export it once per shell, or the screenshot lands in
+  a fresh timestamp folder.
 
 Reading the window (tree only; `query` filters rows, `max_elements` bounds the walk):
 

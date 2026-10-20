@@ -34,8 +34,10 @@ First launch: the onboarding sheet opens on `1. Setup`; press each button that i
 ## Driving it with cua-driver
 
 Preconditions: launched and doctor passing. For onboarding: `defaults delete dev.maulik.backchannel
-onboardingDone` before `verify.sh launch` (restore it afterwards). This journey only READS
-statuses; the one button it may press is the speech model's `Download`.
+onboardingDone` before `verify.sh launch` (restore it afterwards). Reading statuses is always
+safe. The buttons are two kinds: `Download` (speech model, voice models) only needs network and
+time; `Allow` (microphone, system audio) raises a macOS prompt that the user answers, so press it
+only when the user said they are at the Mac, and tell them the prompt is up.
 
 - **Onboarding step 1:** `verify.sh tree "Setup" 200` on the main window. Observable: the step
   indicator reads `1. Setup`, the heading `Get this Mac ready`, and five rows `Apple Intelligence`,
@@ -52,6 +54,16 @@ statuses; the one button it may press is the speech model's `Download`.
   (`list_windows`, its own window_id) click the `Setup` tab. Observable: the window title is
   `Setup` and the same five rows show the same statuses as step 1; save the screenshot with
   `get_window_state … --screenshot-out-file`.
+- **Voice models download (only if the row shows `Download`):** click it. Observable: the button
+  disappears and a progress bar shows; within about a minute the row reads `Ready` and
+  `~/Library/Application Support/Backchannel/models/diarization/speaker-diarization-coreml/` exists.
+- **Microphone `Allow` (user present):** click it. Observable: a `UserNotificationCenter` window
+  (`list_windows` with that app's pid, layer 8) whose tree reads `Allow “Backchannel” to access your
+  microphone?`; save it with `get_window_state … --screenshot-out-file`. While it is pending the
+  app's own trees come back empty (`total_element_count` 0) although screenshots still work. After
+  the user presses Allow the row reads `Ready` on the next read.
+- **System audio `Allow` (user present):** click it. Observable: `defaults read
+  dev.maulik.backchannel systemAudioGranted` becomes 1 and the row reads `Ready`.
 - **Refresh on activation:** not drivable in the background (it needs the app to become active);
   verify by reading the tree after a relaunch instead.
 
@@ -59,9 +71,9 @@ Cleanup: `verify.sh cleanup`, then `defaults write dev.maulik.backchannel onboar
 
 ## Gotchas
 
-- `Allow` on `Microphone` and `System audio` raise system permission prompts, and `Open System
-  Settings` brings System Settings to the front: a verification run must never click them while
-  the user works on this Mac. Read the statuses only.
+- `Allow` on `Microphone` and `System audio` raise system permission prompts that only the user
+  may answer, and `Open System Settings` brings System Settings to the front: click them only with
+  the user's go-ahead, never answer the prompt from the harness.
 - `System audio` is unknowable until first use: a fresh machine shows `Allow` even when the
   permission was granted to this bundle before, until the probe runs once and sets
   `systemAudioGranted`. A denied permission does not make the probe throw on every macOS build;
@@ -74,6 +86,10 @@ Cleanup: `verify.sh cleanup`, then `defaults write dev.maulik.backchannel onboar
 - Rows are `LabeledContent`; the message and the button sit in the value column, so a `query` on
   the row title returns the title only. Read the whole tree (`max_elements` 200) for the statuses.
 - Proved 2026-10-19 (proof-4: onboarding step 1 through Finish, Settings › Setup; proof-5: the
-  release build installed by `Scripts/install.sh`, Settings opens on the Setup tab). Evidence under
-  `build/verify/evidence/proof-4/` and `proof-5/`. Not yet run: any `Allow` or `Download` action, so
-  the error paths (denied permission, failed download) have no runtime proof.
+  release build installed by `Scripts/install.sh`, Settings opens on the Setup tab) and 2026-10-20
+  (proof-6, `build/verify/evidence/proof-6/setup-*.png`, `macos-microphone-prompt.png`): voice
+  models `Download` reached `Ready` in about a minute; microphone `Allow` raised the macOS prompt
+  and the row read `Ready` once the user allowed it; system audio `Allow` set `systemAudioGranted`
+  to 1 and read `Ready`, with no separate macOS prompt seen by the harness (it may have been queued
+  behind the microphone one and answered in the same visit; uncertain). The error paths (denied
+  permission, failed download) still have no runtime proof.
