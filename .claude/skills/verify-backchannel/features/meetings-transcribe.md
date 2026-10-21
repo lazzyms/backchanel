@@ -12,7 +12,11 @@ chat backend (overview, topics, key points, action items).
 - Live transcript with speaker names; floating capsule with elapsed time.
 - Keep-going checkpoint: when enabled, a chime and prompt every N minutes (Settings › Meetings).
 - Speaker recognition after stop; right-click a line to `Rename “Speaker 1”…` across meetings.
-- Summary tab with `Summarize again`; Insights tab with questions answered live from sources.
+- Summary tab with `Summarize again`; Insights tab with questions answered live from sources and a
+  field `Ask a question about your sources` (id `insightQuestion`) plus `Ask` to ask one now. Each
+  answer lists only the source titles it cites as `[n]`, or all retrieved titles when it cites none.
+- Transcript speaker names read `<name>, microphone` or `<name>, system audio` to accessibility and
+  show the route on hover; the user's own name never appears on a system-audio line.
 - History: select a past meeting to read transcript, summary and insights; `Delete Meeting` in the
   row's context menu.
 
@@ -72,3 +76,10 @@ for the summary; something audible on the system output while recording (for exa
   means waiting that long, or setting the stepper to 10 minutes first.
 - Start blocks with an alert when the microphone is denied or no speech locale is installed; the
   alert text names the cause.
+- Proven 2026-10-21 (run `fix-all`, `insights-answered.png`, `insights-db.txt`): a question typed
+  into `insightQuestion` on meeting 6 wrote `insights` row 2 (`Soy wax should be poured at
+  60–65°C.`) within 2 s and the Insights list showed it. `set_value` on the field fills the text but
+  not SwiftUI's binding, so Return and `Ask` do nothing after it: use `type_text` with the field's
+  `element_token`, then `press_key return` with the same token.
+- Proven 2026-10-21 (run `fix-all`, `transcript-speaker-labels.txt`): meeting 6's four lines read
+  `Speaker 1, system audio` with help `Speaker 1 · system audio`.

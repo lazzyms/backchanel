@@ -10,6 +10,8 @@ in the similarity graph.
 - Add through the `Add source` button (NSOpenPanel), by dropping files on the Dock icon, or by
   opening files with the app (what `verify.sh import` does).
 - List view with title, label and rationale; Graph view (`View` picker) with edges above 0.55 cosine.
+  Above 120 sources the graph draws dots only (titles on hover and for the selection), a top-left
+  hint with the count, and a legend of the 12 most common labels with counts plus `+N more labels`.
 - Context menu per source: `Reveal in Finder`, `Remove from library`.
 - Re-embedding of every source when the embedding model changes (Settings › Embedding).
 
@@ -48,8 +50,16 @@ shows an EmbeddingGemma directory); note the current count from
 - Proven 2026-10-19 (run `proof-1`): row 7 `backchannel-verify-tidewater`, label written by Apple
   Intelligence, 1 chunk, visible on the Sources page.
 - Proven 2026-10-21 (run `full-test-12`): row 864 `backchannel-verify-harbor`, 1 chunk, top of
-  the list; the Graph view with 857 sources is unreadable and its AX tree exceeds 2000 nodes, so
-  read the list with `query` or `max_depth:2`. The View picker exposes no AX children.
+  the list; the graph's AX tree with 857 sources exceeds 2000 nodes and the 1000 ms `tree` budget, so
+  read the list with `query` or call `get_window_state` with `timeout_ms:15000` and `max_depth:2`.
+- Proven 2026-10-21 (run `fix-all`, `sources-graph-dense.png`, `sources-tree.txt`): with 855 sources
+  the graph shows dots only, the hint `855 sources. Hover a dot for its title, click to select.`, and
+  a legend of 12 labels with counts and `+438 more labels`. The toolbar holds `AXRadioGroup (View)`
+  with `AXRadioButton (Graph)` and `(Document)`; the legend is `AXGroup (Legend)` with one
+  `AXStaticText` per label.
+- The driver's tree often nests the detail pane under the sidebar's `Settings` button (older
+  evidence in `full-test-12` shows the same on the Meetings page). It is a tree-reconstruction
+  artifact, not nesting in the app: query by name instead of walking from `Settings`.
 - Without an embedding model the import fails with "no model installed" shown in an alert; that is
   a skipped journey, not a pass.
 - Labels come from Apple Intelligence; when it is unavailable the label is the first heading and

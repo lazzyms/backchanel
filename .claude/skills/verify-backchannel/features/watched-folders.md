@@ -53,8 +53,13 @@ Cleanup: `defaults delete dev.maulik.backchannel watchedFolders`, delete
 
 ## Gotchas
 
-- `Add folder…` opens an NSOpenPanel owned by the panel service; seed `watchedFolders` through
-  `defaults` before launch instead, or drive the panel by pixels in its own window.
+- `Add folder…` opens an NSOpenPanel owned by the panel service; write `watchedFolders` through
+  `defaults` instead, before launch or while the app runs (the watcher observes the key), or drive
+  the panel by pixels in its own window.
+- Proven 2026-10-21 (run `fix-all`, `watched-live-db.txt`, `settings-folders.png`): `defaults write
+  dev.maulik.backchannel watchedFolders -array <dir>` while the app ran imported the folder's one
+  markdown file within 2 s, and Settings › Folders listed the folder and `Last scan` with the time.
+  Settings opened on `Setup` from ⌘, (`settings-setup-tree.txt`).
 - Scans only run when an embedding model is installed; the watcher starts after the first
   `SourceLibrary.reload()` and again after an embedding-model switch.
 - FSEvents latency is 2 s and imports take a few seconds each (extraction, embedding, labelling);
