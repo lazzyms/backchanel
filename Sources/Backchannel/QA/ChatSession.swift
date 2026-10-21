@@ -51,7 +51,7 @@ final class ChatSession {
             return
         }
         do {
-            let hits = (try? await library.retrieve(q, limit: 6, meetingID: meeting?.id)) ?? []
+            let hits = (try? await library.retrieve(q, limit: 8, meetingID: meeting?.id)) ?? []
             let prompt = try await buildPrompt(question: q, hits: hits)
             if conversation?.kind != chat.kind { conversation = (chat.kind, try chat.makeConversation(instructions: OnDeviceLM.chatInstructions)) }
             let answer = try await conversation!.conversation.send(prompt)

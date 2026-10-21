@@ -56,27 +56,39 @@ enum Retrieval {
         }
     }
 
+    /// Below this cosine similarity a passage is not counted as a vector match. Nearly every
+    /// passage scores above zero against any query, so without a floor the vector list is as long
+    /// as the library and random passages pick up rank credit.
+    static let similarityFloor: Float = 0.2
+    /// At most this many passages from one source or meeting, so one long document cannot fill the answer.
+    static let perTitleLimit = 2
+
     static func search(query: String, queryVector: [Float]?, passages: [Passage], limit: Int) -> [RetrievedPassage] {
         guard !passages.isEmpty else { return [] }
         let q = tokenize(query)
-        let lexical = bm25(query: q, docs: passages.map { tokenize($0.text) })
+        // The title takes part in the keyword match: a question naming a document should find it.
+        let lexical = bm25(query: q, docs: passages.map { tokenize($0.title + " " + $0.text) })
         let similarity: [Float] = passages.map { p in
             guard let queryVector, let e = p.embedding else { return 0 }
             return Vectors.cosine(queryVector, e)
         }
         // Rank lists: only passages that actually matched on that side take part.
         let lexicalRank = lexical.indices.filter { lexical[$0] > 0 }.sorted { lexical[$0] > lexical[$1] }
-        let vectorRank = similarity.indices.filter { similarity[$0] > 0 }.sorted { similarity[$0] > similarity[$1] }
+        let vectorRank = similarity.indices.filter { similarity[$0] >= similarityFloor }.sorted { similarity[$0] > similarity[$1] }
         var fused: [Int: Float] = [:]
         let k: Float = 60
         for (rank, i) in lexicalRank.enumerated() { fused[i, default: 0] += 1 / (k + Float(rank + 1)) }
         for (rank, i) in vectorRank.enumerated() { fused[i, default: 0] += 1 / (k + Float(rank + 1)) }
-        return fused
-            .sorted { $0.value == $1.value ? similarity[$0.key] > similarity[$1.key] : $0.value > $1.value }
-            .prefix(limit)
-            .map { i, score in
-                RetrievedPassage(title: passages[i].title, text: passages[i].text, score: score,
-                                 similarity: similarity[i], lexical: lexical[i])
-            }
+        var perTitle: [String: Int] = [:]
+        var out: [RetrievedPassage] = []
+        for (i, score) in fused.sorted(by: { $0.value == $1.value ? similarity[$0.key] > similarity[$1.key] : $0.value > $1.value }) {
+            let title = passages[i].title
+            guard perTitle[title, default: 0] < perTitleLimit else { continue }
+            perTitle[title, default: 0] += 1
+            out.append(RetrievedPassage(title: title, text: passages[i].text, score: score,
+                                        similarity: similarity[i], lexical: lexical[i]))
+            if out.count == limit { break }
+        }
+        return out
     }
 }
