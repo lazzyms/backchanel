@@ -40,6 +40,8 @@ struct MeetingsView: View {
             ForEach(model.meetings) { m in row(m).tag(m) }
         }
         .listStyle(.inset)
+        .accessibilityLabel("Meetings")
+        .accessibilityIdentifier("meetingsList")
         .overlay {
             if model.meetings.isEmpty {
                 ContentUnavailableView {

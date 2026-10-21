@@ -23,10 +23,11 @@ struct SourcesView: View {
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
                 Picker("View", selection: $showGraph) {
-                    Label("Graph", systemImage: "point.3.connected.trianglepath.dotted").tag(true)
-                    Label("Document", systemImage: "doc.plaintext").tag(false)
+                    Label("Graph", systemImage: "point.3.connected.trianglepath.dotted").tag(true).accessibilityLabel("Graph")
+                    Label("Document", systemImage: "doc.plaintext").tag(false).accessibilityLabel("Document")
                 }
                 .pickerStyle(.segmented).help("Show the knowledge graph or the selected document")
+                .accessibilityLabel("View").accessibilityIdentifier("viewPicker")
                 Button { pickFiles() } label: { Label("Add source", systemImage: "plus") }
                     .help("Add markdown, text, PDF or image files")
             }
@@ -72,6 +73,8 @@ struct SourcesView: View {
             }
         }
         .listStyle(.inset)
+        .accessibilityLabel("Sources")
+        .accessibilityIdentifier("sourcesList")
         .overlay {
             if library.sources.isEmpty && library.importing.isEmpty {
                 ContentUnavailableView {
