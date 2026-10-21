@@ -205,6 +205,7 @@ struct GraphView: View {
         }
         .padding(6)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Legend")
     }
 
