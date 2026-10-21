@@ -18,6 +18,7 @@ final class FolderWatcher {
 
     private let library: SourceLibrary
     private var stream: FSEventStreamRef?
+    private var defaultsObserver: NSKeyValueObservation?
     private var scanTask: Task<Void, Never>?
     private var rescanWanted = false
     /// Files already tried at a given modification date, so a file that fails to import is not retried every scan.
@@ -25,11 +26,28 @@ final class FolderWatcher {
 
     init(library: SourceLibrary) {
         self.library = library
-        folders = (UserDefaults.standard.stringArray(forKey: Self.key) ?? []).map { URL(fileURLWithPath: $0, isDirectory: true) }
+        folders = Self.storedFolders
+    }
+
+    private static var storedFolders: [URL] {
+        (UserDefaults.standard.stringArray(forKey: key) ?? []).map { URL(fileURLWithPath: $0, isDirectory: true) }
     }
 
     /// Call once the library has loaded; starts listening and runs the first scan.
     func start() {
+        restartStream()
+        scheduleScan()
+        // The folder list is also edited outside the app (`defaults write`, a restored preference
+        // file). Pick that up while running instead of at the next launch.
+        defaultsObserver = UserDefaults.standard.observe(\.watchedFolders) { [weak self] _, _ in
+            Task { @MainActor in self?.reloadFolders() }
+        }
+    }
+
+    private func reloadFolders() {
+        let stored = Self.storedFolders
+        guard stored != folders else { return }
+        folders = stored
         restartStream()
         scheduleScan()
     }
@@ -123,5 +141,13 @@ final class FolderWatcher {
         FSEventStreamSetDispatchQueue(stream, .main)
         FSEventStreamStart(stream)
         self.stream = stream
+    }
+}
+
+extension UserDefaults {
+    /// KVO-visible view of the watched folder list, so external edits reach `FolderWatcher`.
+    @objc dynamic var watchedFolders: [String]? {
+        get { stringArray(forKey: "watchedFolders") }
+        set { set(newValue, forKey: "watchedFolders") }
     }
 }
