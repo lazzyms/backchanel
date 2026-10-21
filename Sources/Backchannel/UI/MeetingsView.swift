@@ -5,6 +5,7 @@ struct MeetingsView: View {
     @Bindable var model: AppModel
     @State private var selected: Meeting?
     @State private var tab: Tab = .transcript
+    @State private var pendingDelete: Meeting?
 
     enum Tab: String, CaseIterable { case transcript = "Transcript", summary = "Summary", insights = "Insights" }
 
@@ -19,6 +20,11 @@ struct MeetingsView: View {
             detail.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle("Meetings")
+        .confirmationDialog("Delete “\(pendingDelete?.title ?? "")”?", isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }), presenting: pendingDelete) { m in
+            Button("Delete Meeting", role: .destructive) { Task { await model.deleteMeeting(m) } }
+        } message: { _ in
+            Text("The transcript, summary and insights are removed. This cannot be undone.")
+        }
         .onChange(of: selected) { _, m in if let m { Task { await session.loadHistory(m) } } }
         .onChange(of: session.state) { _, s in if s == .recording { selected = session.meeting } }
         .onChange(of: model.meetings) { _, ms in
@@ -62,7 +68,7 @@ struct MeetingsView: View {
         .padding(.vertical, 4)
         .contextMenu {
             if !live {
-                Button("Delete Meeting", role: .destructive) { Task { await model.deleteMeeting(m) } }
+                Button("Delete Meeting…", role: .destructive) { pendingDelete = m }
             }
         }
     }
