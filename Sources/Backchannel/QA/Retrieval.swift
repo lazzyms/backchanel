@@ -19,6 +19,17 @@ struct RetrievedPassage: Sendable {
     let lexical: Float
 }
 
+extension Array where Element == RetrievedPassage {
+    /// Titles of the passages the answer cites as `[n]`, in passage order. Every title when it cites none,
+    /// so a model that drops the markers still shows what it read.
+    func citedTitles(in answer: String) -> [String] {
+        let cited = Set(answer.matches(of: /\[(\d+)\]/).compactMap { Int($0.output.1) })
+        let picked = cited.isEmpty ? self : enumerated().filter { cited.contains($0.offset + 1) }.map(\.element)
+        var seen = Set<String>()
+        return picked.map(\.title).filter { seen.insert($0).inserted }
+    }
+}
+
 /// Hybrid search: embedding similarity and BM25 over the same passages, merged with reciprocal rank
 /// fusion. Either side alone still works, so retrieval degrades to keyword search without a model.
 enum Retrieval {

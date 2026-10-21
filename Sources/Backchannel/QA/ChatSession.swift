@@ -55,7 +55,7 @@ final class ChatSession {
             let prompt = try await buildPrompt(question: q, hits: hits)
             if conversation?.kind != chat.kind { conversation = (chat.kind, try chat.makeConversation(instructions: OnDeviceLM.chatInstructions)) }
             let answer = try await conversation!.conversation.send(prompt)
-            messages.append(ChatMessage(role: .assistant, text: answer, sourceTitles: Array(Set(hits.map(\.title))).sorted()))
+            messages.append(ChatMessage(role: .assistant, text: answer, sourceTitles: hits.citedTitles(in: answer)))
         } catch {
             messages.append(ChatMessage(role: .assistant, text: "Couldn't answer: \(error.localizedDescription)"))
         }

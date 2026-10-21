@@ -23,7 +23,7 @@ final class LiveQAService: LiveQA, @unchecked Sendable {
             let hits = try await library.retrieve(check.question, limit: 4)
             guard let best = hits.first, best.similarity > 0.25 || best.lexical > 4 else { return }
             let answer = try await OnDeviceLM.answer(question: check.question, passages: hits.map { ($0.title, $0.text) })
-            let titles = Array(Set(hits.map(\.title)))
+            let titles = hits.citedTitles(in: answer)
             let insight = try await store.appendInsight(meetingId: meeting.id, question: check.question, answer: answer, sourceTitles: titles)
             await session.addInsight(insight)
         } catch {

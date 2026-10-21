@@ -224,7 +224,7 @@ final class MeetingSession {
             If the passages do not contain the answer, say so in one sentence.
             """)
             let answer = try await conversation.send("Passages:\n\(passages)\n\nQuestion: \(q)")
-            let titles = Array(Set(hits.map(\.title))).sorted()
+            let titles = hits.citedTitles(in: answer)
             let insight = try await store.appendInsight(meetingId: meeting.id, question: q, answer: answer, sourceTitles: titles)
             insights.append(insight)
         } catch {
