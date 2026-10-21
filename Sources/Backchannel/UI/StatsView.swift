@@ -18,7 +18,7 @@ struct StatsView: View {
                     card("Recorded", recorded.clock, "clock")
                     card("Sources", "\(model.library.sources.count)", "folder")
                     card("Labels", "\(labels)", "tag")
-                    card("Questions answered", "\(model.insightCount)", "questionmark.bubble")
+                    card("Live insights", "\(model.insightCount)", "lightbulb")
                 }
                 GroupBox("Models") {
                     VStack(alignment: .leading, spacing: 6) {
