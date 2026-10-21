@@ -200,6 +200,8 @@ struct TranscriptList: View {
                         .foregroundStyle(seg.speaker == .me ? Color.accentColor : .secondary)
                         .frame(width: 80, alignment: .trailing)
                         .lineLimit(1)
+                        .help(seg.speaker == .me ? "\(seg.name) · your microphone" : "\(seg.name) · system audio")
+                        .accessibilityLabel(seg.speaker == .me ? "\(seg.name), microphone" : "\(seg.name), system audio")
                     Text(seg.text).foregroundStyle(seg.isFinal ? .primary : .secondary).textSelection(.enabled)
                     Spacer(minLength: 0)
                     Text(seg.startSec.clock).font(.caption2).monospacedDigit().foregroundStyle(.tertiary)

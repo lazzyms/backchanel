@@ -117,7 +117,9 @@ final class MeetingSession {
         state = .recognizing
         defer { state = .idle }
         do {
-            let known = try await store.speakers()
+            // The mic is the user, so a saved voice carrying the user's name never labels system audio.
+            let me = Self.userName
+            let known = try await store.speakers().filter { $0.name.caseInsensitiveCompare(me) != .orderedSame }
             let result = try await SpeakerRecognizer.recognize(audio: audio, segments: segments, known: known)
             for (name, emb) in result.newSpeakers { _ = try await store.insertSpeaker(name: name, embedding: emb) }
             for (id, emb) in result.refreshed { try await store.updateSpeakerEmbedding(id: id, emb) }

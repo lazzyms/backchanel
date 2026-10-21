@@ -121,7 +121,7 @@ struct MeetingSettingsView: View {
     var body: some View {
         Form {
             TextField("Your name", text: $userName, prompt: Text("You"))
-            Text("Labels your microphone in transcripts. Other voices are recognized after each meeting and named Speaker 1, 2…; right-click a line to rename one.")
+            Text("Labels your microphone in transcripts. System audio is “Others” while a meeting runs; those voices are recognized after it stops and named Speaker 1, 2…. Right-click a line to rename one. Hover a name to see which route it came from.")
                 .font(.caption).foregroundStyle(.secondary)
             Toggle("Ask whether to keep going", isOn: $session.checkpointEnabled)
             Stepper("Every \(session.checkpointMinutes) minutes", value: $session.checkpointMinutes, in: 10...120, step: 10)
