@@ -56,7 +56,9 @@ shows an EmbeddingGemma directory); note the current count from
   the graph shows dots only, the hint `855 sources. Hover a dot for its title, click to select.`, and
   a legend of 12 labels with counts and `+438 more labels`. The toolbar holds `AXRadioGroup (View)`
   with `AXRadioButton (Graph)` and `(Document)`; the legend is `AXGroup (Legend)` with one
-  `AXStaticText` per label.
+  `AXStaticText` per label. Checked again on build 30 (`sources-tree-build30.txt`): the rows read
+  `Abstract Mathematical Pattern (71)` and `+438 more labels`, not the container's name. The
+  `query` must match a row's text; `query:"Legend"` returns nothing.
 - The driver's tree often nests the detail pane under the sidebar's `Settings` button (older
   evidence in `full-test-12` shows the same on the Meetings page). It is a tree-reconstruction
   artifact, not nesting in the app: query by name instead of walking from `Settings`.

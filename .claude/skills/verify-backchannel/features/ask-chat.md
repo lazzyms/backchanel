@@ -34,7 +34,8 @@ Stats shows the availability text).
   is a no-op: `click` it, then `click` the `AXMenuItem` whose name is the meeting title (match on
   the time part, e.g. `/4:42/`; the title contains a narrow no-break space U+202F before `PM`).
   Choosing a scope starts a new conversation. Ask about that meeting. Observable: the answer draws on
-  that transcript (the citation line still lists sources and may name another meeting).
+  that transcript. The citation line lists only the passages the answer cites as `[n]`, so it can
+  name another meeting when the answer cites one; every retrieved title when it cites none.
 - **New chat:** press `New chat`. Observable: the messages disappear and the button is disabled.
 
 ## Gotchas
@@ -53,6 +54,9 @@ Stats shows the availability text).
   the pour temperature and curing time from `candle-wax-guide` with a `[1]` citation line. The
   defaults had `chatBackend` set to `endpoint` with Ollama down and no model name, which fails fast;
   the run switched it to `apple` with `defaults write dev.maulik.backchannel chatBackend apple`.
+- Proven 2026-10-21 (run `fix-all`, build 30, `ask-citation-build30.txt`, `ask-citation-build30.png`):
+  the answer `… according to [1] and [2].` carried the footer `candle-wax-guide · Meeting 20 Oct
+  2026 at 12:01 PM · 20 Oct 2026` and nothing else, although retrieval returns up to 8 passages.
 - `waitFor({text})` also matches the question the harness just typed; poll the tree for a fact that
   only the answer contains instead.
 - `waitFor` accepts at most `timeout_ms: 10000`; loop it for the 10–20 s Apple Intelligence answer.
