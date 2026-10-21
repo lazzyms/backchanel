@@ -167,7 +167,6 @@ struct ContentView: View {
                     Label(p.title, systemImage: p.symbol).tag(p)
                 }
             }
-            .accessibilityLabel("Pages")
             .navigationSplitViewColumnWidth(min: 150, ideal: 170, max: 220)
             .safeAreaInset(edge: .bottom) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -178,8 +177,6 @@ struct ContentView: View {
                     SettingsLink { Label("Settings", systemImage: "gearshape") }
                         .buttonStyle(.plain)
                         .keyboardShortcut(",", modifiers: .command)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("Settings")
                 }
                 .foregroundStyle(.secondary)
                 .padding(12)
