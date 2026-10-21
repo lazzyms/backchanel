@@ -149,18 +149,29 @@ struct GraphView: View {
                 }
                 ForEach(library.sources) { s in
                     let p = positions[s.id] ?? .zero
+                    let isSelected = selected?.id == s.id
                     VStack(spacing: 3) {
-                        Circle().fill(color(for: s.label)).frame(width: 16, height: 16)
-                            .overlay(Circle().strokeBorder(.white, lineWidth: selected?.id == s.id ? 3 : 1))
-                        Text(s.title).font(.caption2).lineLimit(1).frame(maxWidth: 110)
-                        if let l = s.label { Text(l).font(.system(size: 9)).foregroundStyle(.secondary) }
+                        Circle().fill(color(for: s.label)).frame(width: nodeSize, height: nodeSize)
+                            .overlay(Circle().strokeBorder(.white, lineWidth: isSelected ? 3 : 1))
+                        if !dense || isSelected {
+                            Text(s.title).font(.caption2).lineLimit(1).frame(maxWidth: 110)
+                            if let l = s.label { Text(l).font(.system(size: 9)).foregroundStyle(.secondary) }
+                        }
                     }
                     .position(p)
+                    .zIndex(isSelected ? 1 : 0)
                     .onTapGesture { selected = s }
-                    .help(s.labelRationale ?? s.title)
+                    .help(dense ? "\(s.title)\n\(s.label ?? "")" : (s.labelRationale ?? s.title))
+                    .accessibilityLabel(s.title)
                 }
             }
             .overlay(alignment: .bottomLeading) { legend.padding(8) }
+            .overlay(alignment: .topLeading) {
+                if dense {
+                    Text("\(library.sources.count) sources. Hover a dot for its title, click to select.")
+                        .font(.caption).foregroundStyle(.secondary).padding(8)
+                }
+            }
         }
         .background(Color(nsColor: .textBackgroundColor))
         .overlay {
@@ -170,13 +181,31 @@ struct GraphView: View {
         }
     }
 
+    /// Above this many sources the titles overlap into noise, so only dots are drawn and the legend is capped.
+    private static let denseThreshold = 120
+    private static let legendLimit = 12
+    private var dense: Bool { library.sources.count > Self.denseThreshold }
+    private var nodeSize: CGFloat { dense ? 9 : 16 }
+
+    /// The most common labels, largest first; the rest are counted. Many labels share a colour.
     private var legend: some View {
-        let labels = Array(Set(library.sources.compactMap(\.label))).sorted()
+        let counts = Dictionary(library.sources.compactMap(\.label).map { ($0, 1) }, uniquingKeysWith: +)
+        let ordered = counts.sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }
+        let shown = ordered.prefix(Self.legendLimit)
         return VStack(alignment: .leading, spacing: 2) {
-            ForEach(labels, id: \.self) { l in
-                HStack(spacing: 4) { Circle().fill(color(for: l)).frame(width: 8, height: 8); Text(l).font(.caption2) }
+            ForEach(shown, id: \.key) { l, n in
+                HStack(spacing: 4) {
+                    Circle().fill(color(for: l)).frame(width: 8, height: 8)
+                    Text(dense ? "\(l) (\(n))" : l).font(.caption2)
+                }
+            }
+            if ordered.count > shown.count {
+                Text("+\(ordered.count - shown.count) more labels").font(.caption2).foregroundStyle(.secondary)
             }
         }
+        .padding(6)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+        .accessibilityLabel("Legend")
     }
 
     private func color(for label: String?) -> Color {
