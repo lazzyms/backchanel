@@ -15,6 +15,8 @@ final class MeetingSession {
     private(set) var elapsed: TimeInterval = 0
     private(set) var segments: [TranscriptSegment] = []
     private(set) var insights: [Insight] = []
+    /// A question typed under Insights is being answered.
+    private(set) var answering = false
     var errorMessage: String?
 
     /// Whether to ask at all, and how often. The prompt only asks; nothing stops unless the user stops it.
@@ -203,6 +205,30 @@ final class MeetingSession {
     }
 
     func addInsight(_ insight: Insight) { insights.append(insight) }
+
+    /// A question typed under Insights: answered from the sources with the chat model, kept with the
+    /// meeting like one heard in the audio. Live questions come from `LiveQAService` instead.
+    func ask(_ question: String) async {
+        let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let meeting, !q.isEmpty, !answering else { return }
+        answering = true
+        defer { answering = false }
+        do {
+            if let why = chat.availability { throw ChatBackendError.unavailable(why) }
+            let hits = try await library.retrieve(q, limit: 4)
+            let passages = hits.enumerated().map { i, h in "[\(i + 1)] \(h.title)\n\(String(h.text.prefix(1500)))" }.joined(separator: "\n\n")
+            let conversation = try chat.makeConversation(instructions: """
+            Answer the question using only the provided passages. Be concise (2-4 sentences). \
+            If the passages do not contain the answer, say so in one sentence.
+            """)
+            let answer = try await conversation.send("Passages:\n\(passages)\n\nQuestion: \(q)")
+            let titles = Array(Set(hits.map(\.title))).sorted()
+            let insight = try await store.appendInsight(meetingId: meeting.id, question: q, answer: answer, sourceTitles: titles)
+            insights.append(insight)
+        } catch {
+            errorMessage = "Couldn't answer: \(error.localizedDescription)"
+        }
+    }
 
     private func teardown() async {
         ticker?.cancel(); ticker = nil

@@ -6,6 +6,7 @@ struct MeetingsView: View {
     @State private var selected: Meeting?
     @State private var tab: Tab = .transcript
     @State private var pendingDelete: Meeting?
+    @State private var insightDraft = ""
 
     enum Tab: String, CaseIterable { case transcript = "Transcript", summary = "Summary", insights = "Insights" }
 
@@ -142,23 +143,45 @@ struct MeetingsView: View {
     }
 
     private var insights: some View {
-        List(session.insights) { ins in
-            VStack(alignment: .leading, spacing: 4) {
-                Text(ins.question).font(.subheadline.weight(.semibold))
-                Text(LocalizedStringKey(ins.answer)).textSelection(.enabled)
-                if !ins.sourceTitles.isEmpty {
-                    Text(ins.sourceTitles.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+            List(session.insights) { ins in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(ins.question).font(.subheadline.weight(.semibold))
+                    Text(LocalizedStringKey(ins.answer)).textSelection(.enabled)
+                    if !ins.sourceTitles.isEmpty {
+                        Text(ins.sourceTitles.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            .listStyle(.inset)
+            .accessibilityLabel("Insights")
+            .overlay {
+                if session.insights.isEmpty {
+                    ContentUnavailableView("No insights yet", systemImage: "questionmark.bubble",
+                                           description: Text("Questions heard in the meeting are answered here from your sources. Type one below to ask now."))
                 }
             }
-            .padding(.vertical, 4)
-        }
-        .listStyle(.inset)
-        .overlay {
-            if session.insights.isEmpty {
-                ContentUnavailableView("No insights yet", systemImage: "questionmark.bubble",
-                                       description: Text("Questions heard in the meeting are answered here from your sources."))
+            Divider()
+            HStack(spacing: 8) {
+                if session.answering { ProgressView().controlSize(.small) }
+                TextField("Ask a question about your sources", text: $insightDraft)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(askInsight)
+                    .disabled(session.answering)
+                    .accessibilityIdentifier("insightQuestion")
+                Button("Ask", action: askInsight)
+                    .disabled(session.answering || insightDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
+            .padding(10)
         }
+    }
+
+    private func askInsight() {
+        let q = insightDraft
+        guard !q.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !session.answering else { return }
+        insightDraft = ""
+        Task { await session.ask(q) }
     }
 }
 
