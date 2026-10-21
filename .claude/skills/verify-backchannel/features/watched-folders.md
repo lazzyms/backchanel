@@ -61,10 +61,12 @@ Cleanup: `defaults delete dev.maulik.backchannel watchedFolders`, delete
   poll the database rather than snapshotting once.
 - Stored paths are resolved, so a file under `/tmp` is stored as `/private/tmp/...`; match with
   `path like '%backchannel-verify-%'`, never a `/tmp/` prefix.
-- A re-import replaces the row: the source gets a new id and its label is regenerated. Poll for the
-  id to change, not for `modified_at` alone.
+- A re-import of an individually added file keeps the row: measured 2026-10-21 (run
+  `full-test-12`), a source added through `verify.sh import` kept id 864 after its file changed, the label was regenerated and the text
+  carried the edit within 60 s. Poll `modified_at` and the text, not the id.
 - Proved 2026-10-19 (proof-3): onboarding folder step showed the seeded folder; launch scan imported
   the seeded file; a new file appeared as a source after about 45 s; an appended line re-imported the
   file with one chunk whose text contained the amendment. Evidence: `watched-db.txt`,
-  `watched-sources-tree.txt`, `watched-sources.png`. Not yet run: remove-folder and the
-  individually-added-file journeys.
+  `watched-sources-tree.txt`, `watched-sources.png`. Not yet run: remove-folder. Seeding `watchedFolders`
+  while the app runs does not start a scan (measured 2026-10-21, no import after 105 s); seed
+  before launch.

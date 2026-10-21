@@ -47,6 +47,9 @@ shows an EmbeddingGemma directory); note the current count from
   titled like the first; harmless, and cleanup quits the process.
 - Proven 2026-10-19 (run `proof-1`): row 7 `backchannel-verify-tidewater`, label written by Apple
   Intelligence, 1 chunk, visible on the Sources page.
+- Proven 2026-10-21 (run `full-test-12`): row 864 `backchannel-verify-harbor`, 1 chunk, top of
+  the list; the Graph view with 857 sources is unreadable and its AX tree exceeds 2000 nodes, so
+  read the list with `query` or `max_depth:2`. The View picker exposes no AX children.
 - Without an embedding model the import fails with "no model installed" shown in an alert; that is
   a skipped journey, not a pass.
 - Labels come from Apple Intelligence; when it is unavailable the label is the first heading and
