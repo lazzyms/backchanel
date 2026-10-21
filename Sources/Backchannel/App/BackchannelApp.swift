@@ -81,6 +81,7 @@ final class AppModel {
     var onboardingHost: UUID?
     var meetings: [Meeting] = []
     var insightCount = 0
+    var settingsTab: SettingsTab = .setup
     var fatalError: String?
 
     private init() {
@@ -185,7 +186,7 @@ struct ContentView: View {
             switch page ?? .meetings {
             case .meetings: MeetingsView(model: model)
             case .ask: AskView(chat: model.chat, meetings: model.meetings)
-            case .sources: SourcesView(library: model.library)
+            case .sources: SourcesView(model: model)
             case .stats: StatsView(model: model)
             }
         }

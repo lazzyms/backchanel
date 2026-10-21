@@ -1,29 +1,34 @@
 import SwiftUI
 
+/// The Settings tabs. Views that open Settings for one purpose (the "Models…" link under Sources)
+/// set `AppModel.settingsTab` first; a plain open starts at Setup.
+enum SettingsTab: Hashable { case setup, embedding, chat, folders, meetings }
+
 struct SettingsView: View {
     @Bindable var model: AppModel
 
     var body: some View {
-        TabView {
-            Tab("Setup", systemImage: "checklist") {
+        TabView(selection: $model.settingsTab) {
+            Tab("Setup", systemImage: "checklist", value: .setup) {
                 SetupView(checker: model.setup)
             }
-            Tab("Embedding", systemImage: "point.3.connected.trianglepath.dotted") {
+            Tab("Embedding", systemImage: "point.3.connected.trianglepath.dotted", value: .embedding) {
                 ModelPickerView(models: model.models, mode: .settings) { chosen in
                     Task { await model.useEmbeddingModel(chosen) }
                 }
             }
-            Tab("Chat", systemImage: "bubble.left.and.text.bubble.right") {
+            Tab("Chat", systemImage: "bubble.left.and.text.bubble.right", value: .chat) {
                 ChatSettingsView(chat: model.chatModels)
             }
-            Tab("Folders", systemImage: "folder.badge.gearshape") {
+            Tab("Folders", systemImage: "folder.badge.gearshape", value: .folders) {
                 WatchedFoldersView(watcher: model.watcher)
             }
-            Tab("Meetings", systemImage: "waveform") {
+            Tab("Meetings", systemImage: "waveform", value: .meetings) {
                 MeetingSettingsView(session: model.session)
             }
         }
         .frame(width: 560, height: 480)
+        .onDisappear { model.settingsTab = .setup }
     }
 }
 
@@ -94,7 +99,10 @@ struct ChatSettingsView: View {
                             Task { testResult = await chat.testEndpoint(); testing = false }
                         }
                         .disabled(testing || !chat.isAvailable)
-                        if let testResult { Text(testResult).font(.caption).foregroundStyle(.secondary).lineLimit(2) }
+                    }
+                    if let testResult {
+                        Text(testResult).font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
                     }
                 }
                 Text("Any OpenAI-compatible chat endpoint: Ollama or LM Studio on this Mac, or a hosted API. The key is kept in your Keychain and sent only to this URL.")
@@ -150,7 +158,7 @@ struct WatchedFoldersView: View {
                 Text("New or changed markdown, text, PDF and image files in these folders are imported and embedded while Backchannel runs, in the background too. Sources added one by one are watched for changes as well. Nothing is removed from the library on its own.")
             }
             if let last = watcher.lastScan {
-                LabeledContent("Last scan", value: watcher.scanning ? "Scanning…" : last.formatted(date: .omitted, time: .shortened))
+                LabeledContent("Last scan", value: watcher.scanning ? "Scanning…" : last.formatted(date: .abbreviated, time: .shortened))
             }
         }
         .formStyle(.grouped)

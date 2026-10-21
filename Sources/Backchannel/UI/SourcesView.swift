@@ -2,7 +2,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SourcesView: View {
-    @Bindable var library: SourceLibrary
+    @Bindable var model: AppModel
+    @Environment(\.openSettings) private var openSettings
+    private var library: SourceLibrary { model.library }
     @State private var selected: Source?
     @State private var showGraph = true
     @State private var isDropTarget = false
@@ -85,7 +87,8 @@ struct SourcesView: View {
             HStack {
                 Text(library.reembedding ? "Re-embedding with \(library.embedderName)…" : "\(library.sources.count) sources · \(library.embedderName)")
                 Spacer()
-                SettingsLink { Text("Models…") }.buttonStyle(.link)
+                Button("Models…") { model.settingsTab = .embedding; openSettings() }.buttonStyle(.link)
+                    .help("Choose the embedding model under Settings › Embedding")
             }
             .font(.caption).foregroundStyle(.secondary).padding(8)
         }

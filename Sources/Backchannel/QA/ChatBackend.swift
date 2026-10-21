@@ -292,8 +292,11 @@ final class ChatModelManager {
         do {
             let reply = try await EndpointConversation.complete(config: endpoint, messages: [["role": "user", "content": "Reply with the single word OK."]])
             return "Reply: " + reply.prefix(80)
-        } catch {
+        } catch let error as ChatBackendError {
             return error.localizedDescription
+        } catch {
+            let where_ = endpoint.chatURL?.absoluteString ?? endpoint.baseURL
+            return "\(error.localizedDescription) Tried \(where_). Check that the server is running and the base URL ends at the API root (for Ollama, http://localhost:11434/v1)."
         }
     }
 }

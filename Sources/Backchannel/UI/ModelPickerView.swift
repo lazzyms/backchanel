@@ -40,12 +40,22 @@ struct ModelPickerView: View {
                 .padding(.horizontal, 1)
             }
             HStack {
+                if let why = buttonHint { Text(why).font(.caption).foregroundStyle(.secondary) }
                 Spacer()
                 Button(mode == .onboarding ? "Continue" : "Use this model") { if let chosen { models.select(chosen); onDone(chosen) } }
                     .keyboardShortcut(.defaultAction).disabled(!canContinue || (mode == .settings && choice == models.selected.id))
             }
         }
         .padding(mode == .onboarding ? 0 : 24).frame(width: mode == .onboarding ? 512 : nil, height: mode == .onboarding ? 460 : nil)
+    }
+
+    /// Why the main button is disabled, shown beside it; nil when it is enabled.
+    private var buttonHint: String? {
+        guard let chosen else { return "Pick a model." }
+        if mode == .settings, chosen.id == models.selected.id { return "\(chosen.name) is already in use." }
+        if !chosen.isSupported { return "\(chosen.name) cannot run in this build." }
+        if !chosen.isInstalled { return models.downloading == chosen.id ? "Downloading…" : "Download \(chosen.name) first." }
+        return nil
     }
 
     @ViewBuilder
@@ -76,6 +86,10 @@ struct ModelPickerView: View {
         .contentShape(Rectangle())
         .opacity(m.isSupported ? 1 : 0.5)
         .onTapGesture { if m.isSupported { choice = m.id } }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(m.name)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+        .accessibilityAction(named: "Select") { if m.isSupported { choice = m.id } }
     }
 
     @ViewBuilder
