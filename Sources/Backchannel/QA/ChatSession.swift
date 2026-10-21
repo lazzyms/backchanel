@@ -34,6 +34,12 @@ final class ChatSession {
         conversation = nil
     }
 
+    /// New chat: back to every source and meeting, with an empty thread.
+    func newChat() {
+        meeting = nil
+        reset()
+    }
+
     func ask(_ question: String) async {
         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty, !thinking else { return }
@@ -45,7 +51,7 @@ final class ChatSession {
             return
         }
         do {
-            let hits = (try? await library.retrieve(q, limit: 6)) ?? []
+            let hits = (try? await library.retrieve(q, limit: 6, meetingID: meeting?.id)) ?? []
             let prompt = try await buildPrompt(question: q, hits: hits)
             if conversation?.kind != chat.kind { conversation = (chat.kind, try chat.makeConversation(instructions: OnDeviceLM.chatInstructions)) }
             let answer = try await conversation!.conversation.send(prompt)

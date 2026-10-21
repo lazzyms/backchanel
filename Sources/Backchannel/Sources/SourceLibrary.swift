@@ -134,14 +134,17 @@ final class SourceLibrary {
 
     /// Best passages for a query across every source and every finished meeting: embedding similarity
     /// plus BM25, fused by rank. Works without an embedding model (keyword search only).
-    func retrieve(_ query: String, limit: Int = 5) async throws -> [RetrievedPassage] {
+    /// Searches every source chunk plus meeting transcripts; with `meetingID` only that meeting's
+    /// transcript joins the sources, so a scoped chat never cites another meeting.
+    func retrieve(_ query: String, limit: Int = 5, meetingID: Int64? = nil) async throws -> [RetrievedPassage] {
         let queryVector = try? await embedder?.embed([query], task: .query).first
         let titles = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0.title) })
         var passages = try await store.allChunks().map {
             Passage(title: titles[$0.sourceId] ?? "?", text: $0.text, embedding: $0.embedding)
         }
         let meetings = Dictionary(uniqueKeysWithValues: try await store.meetings().map { ($0.id, $0) })
-        passages += try await store.allMeetingChunks().map {
+        let chunks = try await store.allMeetingChunks().filter { meetingID == nil || $0.meetingId == meetingID }
+        passages += chunks.map {
             let m = meetings[$0.meetingId]
             let title = m.map { "\($0.title) · \($0.startedAt.formatted(date: .abbreviated, time: .omitted))" } ?? "Meeting"
             return Passage(title: title, text: $0.text, embedding: $0.embedding)

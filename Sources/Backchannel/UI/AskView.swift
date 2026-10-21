@@ -37,7 +37,7 @@ struct AskView: View {
         .navigationTitle("Ask")
         .toolbar {
             ToolbarItem(placement: .automatic) {
-                Button("New chat", systemImage: "square.and.pencil") { chat.reset() }.disabled(chat.messages.isEmpty)
+                Button("New chat", systemImage: "square.and.pencil") { chat.newChat() }.disabled(chat.messages.isEmpty && chat.meeting == nil)
             }
         }
         .onAppear { focused = true }
