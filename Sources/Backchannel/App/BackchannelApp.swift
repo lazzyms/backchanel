@@ -13,6 +13,12 @@ struct BackchannelApp: App {
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified)
+        // Files opened from Finder or the Dock go to the app delegate as imports; without this
+        // every open-file event also spawned a second main window.
+        .handlesExternalEvents(matching: [])
+        // The status item keeps the app alive with no window open. Without this, a launch after
+        // quitting with the window closed restores nothing and the app looks like it did not start.
+        .defaultLaunchBehavior(.presented)
         .commands {
             CommandGroup(after: .newItem) {
                 Button(model.session.isActive ? "Stop transcribing" : "Start transcribing") { model.toggleTranscribing() }
@@ -36,6 +42,22 @@ struct BackchannelApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
         Task { @MainActor in await AppModel.shared.library.importFiles(urls) }
+    }
+
+    /// The status item keeps the app alive with no window open, so a quit (or a kill) after the
+    /// last window closed leaves saved state with no windows and the next launch restores none.
+    /// `defaultLaunchBehavior(.presented)` does not override that on macOS 27.0.1, so reopen
+    /// ourselves, the same event a Dock click sends, which SwiftUI answers with a main window.
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        DispatchQueue.main.async {
+            let hasMain = NSApp.windows.contains { $0.isVisible && $0.identifier?.rawValue.hasPrefix("main-AppWindow") == true }
+            guard !hasMain else { return }
+            let me = NSAppleEventDescriptor(processIdentifier: ProcessInfo.processInfo.processIdentifier)
+            let reopen = NSAppleEventDescriptor(eventClass: AEEventClass(kCoreEventClass), eventID: AEEventID(kAEReopenApplication),
+                                                targetDescriptor: me, returnID: AEReturnID(kAutoGenerateReturnID),
+                                                transactionID: AETransactionID(kAnyTransactionID))
+            _ = try? reopen.sendEvent(options: [.noReply], timeout: 1)
+        }
     }
 }
 
