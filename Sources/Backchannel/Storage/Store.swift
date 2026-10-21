@@ -80,8 +80,13 @@ actor Store {
         try await db.run("UPDATE meetings SET summary=? WHERE id=?", [.text(summary), .int(meetingId)])
     }
 
+    /// Titles come from the start minute, so two meetings started in the same minute get " (2)",
+    /// " (3)" and so on instead of sharing a name.
     func createMeeting(title: String) async throws -> Meeting {
         let now = Date()
+        let taken = try await db.query("SELECT COUNT(*) FROM meetings WHERE title=? OR title LIKE ?",
+                                       [.text(title), .text(title + " (%)")]) { r in Int(r.int(0)) }.first ?? 0
+        let title = taken == 0 ? title : "\(title) (\(taken + 1))"
         let id = try await db.run("INSERT INTO meetings(title,started_at) VALUES(?,?)", [.text(title), .double(now.timeIntervalSince1970)])
         return Meeting(id: id, title: title, startedAt: now, endedAt: nil, summary: nil)
     }
