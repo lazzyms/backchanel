@@ -186,9 +186,7 @@ struct MeetingsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(ins.question).font(.subheadline.weight(.semibold))
                     Text(LocalizedStringKey(ins.answer)).textSelection(.enabled)
-                    if !ins.sourceTitles.isEmpty {
-                        Text(ins.sourceTitles.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
-                    }
+                    CitationRow(titles: ins.sourceTitles) { model.openSource(titled: $0) }
                 }
                 .padding(.vertical, 4)
             }

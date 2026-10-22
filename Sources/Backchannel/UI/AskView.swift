@@ -2,8 +2,9 @@ import SwiftUI
 
 /// Ask: the original's chat page. Empty state headline, bubbles, and a capsule composer at the bottom.
 struct AskView: View {
-    @Bindable var chat: ChatSession
-    let meetings: [Meeting]
+    @Bindable var model: AppModel
+    private var chat: ChatSession { model.chat }
+    private var meetings: [Meeting] { model.meetings }
     @State private var draft = ""
     @FocusState private var focused: Bool
 
@@ -48,17 +49,16 @@ struct AskView: View {
 
     private var composer: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Menu {
-                Picker("Scope", selection: $chat.meeting) {
+            HStack(spacing: 6) {
+                Text("Scope").font(.caption).foregroundStyle(.secondary)
+                Picker("Scope", selection: Bindable(chat).meeting) {
                     Text("All sources and meetings").tag(Meeting?.none)
                     ForEach(meetings) { m in Text(m.title).tag(Meeting?.some(m)) }
                 }
-                .pickerStyle(.inline)
-            } label: {
-                Label(chat.meeting?.title ?? "All sources and meetings", systemImage: "line.3.horizontal.decrease.circle")
+                .labelsHidden().pickerStyle(.menu).controlSize(.small).fixedSize()
+                .accessibilityIdentifier("askScope")
+                .help("Which meeting to answer from, besides your sources")
             }
-            .menuStyle(.button).buttonStyle(.bordered).controlSize(.small).fixedSize()
-            .help("Which meeting to answer from, besides your sources")
 
             HStack(spacing: 8) {
                 TextField("Ask Backchannel about your meetings", text: $draft, axis: .vertical)
@@ -110,12 +110,30 @@ struct AskView: View {
         } else {
             VStack(alignment: .leading, spacing: 6) {
                 Text(LocalizedStringKey(m.text)).textSelection(.enabled)
-                if !m.sourceTitles.isEmpty {
-                    Label(m.sourceTitles.joined(separator: " · "), systemImage: "doc.text")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                CitationRow(titles: m.sourceTitles) { model.openSource(titled: $0) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+/// The sources an answer cited, each a button that opens the document under Sources.
+struct CitationRow: View {
+    let titles: [String]
+    let open: (String) -> Void
+
+    var body: some View {
+        if !titles.isEmpty {
+            HStack(spacing: 6) {
+                Image(systemName: "doc.text")
+                ForEach(titles, id: \.self) { t in
+                    Button(t) { open(t) }
+                        .buttonStyle(.plain).foregroundStyle(.tint).lineLimit(1)
+                        .help("Open “\(t)” under Sources")
+                }
+            }
+            .font(.caption).foregroundStyle(.secondary)
+            .accessibilityLabel("Sources: \(titles.joined(separator: ", "))")
         }
     }
 }

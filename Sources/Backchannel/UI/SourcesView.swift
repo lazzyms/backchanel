@@ -44,9 +44,18 @@ struct SourcesView: View {
             return true
         }
         .task { await library.reload() }
+        .onAppear(perform: showRequested)
+        .onChange(of: model.requestedSource) { _, _ in showRequested() }
         .alert("Import failed", isPresented: Binding(get: { library.errorMessage != nil }, set: { if !$0 { library.errorMessage = nil } })) {
             Button("OK") {}
         } message: { Text(library.errorMessage ?? "") }
+    }
+
+    private func showRequested() {
+        guard let s = model.requestedSource else { return }
+        selected = s
+        showGraph = false
+        model.requestedSource = nil
     }
 
     private var list: some View {

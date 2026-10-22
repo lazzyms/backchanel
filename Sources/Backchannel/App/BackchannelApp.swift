@@ -82,7 +82,18 @@ final class AppModel {
     var meetings: [Meeting] = []
     var insightCount = 0
     var settingsTab: SettingsTab = .setup
+    /// Which page the main window shows. Lives here so a citation in Ask can open Sources.
+    var page: Page = .meetings
+    /// A source another page asked Sources to show. Sources reads it once and clears it.
+    var requestedSource: Source?
     var fatalError: String?
+
+    /// Opens the source with this title under Sources. A title no source has does nothing.
+    func openSource(titled title: String) {
+        guard let s = library.sources.first(where: { $0.title == title }) else { return }
+        requestedSource = s
+        page = .sources
+    }
 
     private init() {
         let store: Store
@@ -157,12 +168,11 @@ enum Page: String, CaseIterable, Identifiable {
 
 struct ContentView: View {
     @Bindable var model: AppModel
-    @State private var page: Page? = .meetings
     @State private var windowID = UUID()
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $page) {
+            List(selection: Binding<Page?>(get: { model.page }, set: { if let p = $0 { model.page = p } })) {
                 ForEach(Page.allCases) { p in
                     Label(p.title, systemImage: p.symbol).tag(p)
                 }
@@ -183,9 +193,9 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         } detail: {
-            switch page ?? .meetings {
+            switch model.page {
             case .meetings: MeetingsView(model: model)
-            case .ask: AskView(chat: model.chat, meetings: model.meetings)
+            case .ask: AskView(model: model)
             case .sources: SourcesView(model: model)
             case .stats: StatsView(model: model)
             }
