@@ -20,7 +20,7 @@ final class ChatSession {
     /// Meeting whose summary and transcript are added to every question; nil for everything.
     var meeting: Meeting? { didSet { if meeting?.id != oldValue?.id { reset() } } }
 
-    private let library: SourceLibrary
+    let library: SourceLibrary
     private let store: Store
     private let chat: ChatModelManager
     private var conversation: (kind: ChatBackendKind, conversation: any ChatConversation)?

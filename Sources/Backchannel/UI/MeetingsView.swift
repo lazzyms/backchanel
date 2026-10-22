@@ -45,13 +45,8 @@ struct MeetingsView: View {
         .accessibilityIdentifier("meetingsList")
         .overlay {
             if model.meetings.isEmpty {
-                ContentUnavailableView {
-                    Label("No meetings yet", systemImage: "waveform")
-                } description: {
-                    Text("Start transcribing to record a meeting. Your mic is “You”, system audio is “Others”.")
-                } actions: {
-                    Button("Start transcribing") { model.toggleTranscribing() }.buttonStyle(.borderedProminent)
-                }
+                ContentUnavailableView("No meetings yet", systemImage: "waveform",
+                                       description: Text("Your first one appears here when you stop it."))
             }
         }
     }
@@ -97,6 +92,8 @@ struct MeetingsView: View {
                 case .insights: insights
                 }
             }
+        } else if model.meetings.isEmpty {
+            FirstMeetingGuide(model: model)
         } else {
             ContentUnavailableView("Select a meeting", systemImage: "rectangle.stack",
                                    description: Text("Pick a meeting to read its transcript, summary and live answers."))
@@ -229,6 +226,55 @@ struct TranscriptList: View {
             }
             .onChange(of: session.segments.last?.id) { _, id in
                 if let id { withAnimation { proxy.scrollTo(id, anchor: .bottom) } }
+            }
+        }
+    }
+}
+
+/// What the detail pane shows before any meeting exists: the three steps of a first meeting and
+/// whether this Mac is ready for one. Replaces the bare button a new user otherwise faced.
+struct FirstMeetingGuide: View {
+    @Bindable var model: AppModel
+
+    private var notReady: [SetupItem] {
+        SetupItem.allCases.filter { if case .ready = model.setup.status[$0] { false } else { true } }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Label("Your first meeting", systemImage: "waveform").font(.title2.weight(.semibold))
+            Text("Backchannel listens to your microphone and to the audio of any call on this Mac, writes the transcript as it goes, and summarizes when you stop. Nothing leaves this Mac.")
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 12) {
+                step(1, "Start transcribing", "Press the button in the toolbar, or ⇧⌘R. A floating capsule shows the time and a Stop button over every app.")
+                step(2, "Talk, or play a call", "Lines appear as they are heard. Your microphone is “\(MeetingSession.userName)”; everyone else is “Others” until their voices are recognized.")
+                step(3, "Stop", "The summary and the questions answered from your sources appear under the meeting.")
+            }
+            if model.setup.status.isEmpty {
+                ProgressView().controlSize(.small)
+            } else if notReady.isEmpty {
+                Button("Start transcribing") { model.toggleTranscribing() }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Not ready yet: \(notReady.map(\.title).joined(separator: ", "))", systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                    Button("Open Setup") { model.settingsTab = .setup; openSettings() }
+                }
+            }
+        }
+        .padding(28).frame(maxWidth: 560, alignment: .leading).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .task { await model.setup.refresh() }
+    }
+
+    @Environment(\.openSettings) private var openSettings
+
+    private func step(_ n: Int, _ title: String, _ detail: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text("\(n)").font(.caption.weight(.bold)).frame(width: 22, height: 22)
+                .background(Color.accentColor.opacity(0.15), in: Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.body.weight(.medium))
+                Text(detail).font(.callout).foregroundStyle(.secondary)
             }
         }
     }
