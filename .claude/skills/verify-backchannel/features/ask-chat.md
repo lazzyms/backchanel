@@ -62,3 +62,10 @@ Stats shows the availability text).
 - `waitFor` accepts at most `timeout_ms: 10000`; loop it for the 10–20 s Apple Intelligence answer.
 - Typing with a background `type_text` relies on AX insertion; if the field stays empty, re-read the
   tree and retry with the token of the field, not of the window.
+
+### Build 39 (UX)
+- Empty page shows the hint "Answers come from your N sources and M meetings…" (AXStaticText).
+- Scope is an `AXPopUpButton` with `id=askScope`, default "All sources and meetings".
+- An answer's citations are `AXButton (Sources: <title>)` with help "Open “<title>” under Sources".
+  Pressing one switches the window to Sources in Document view with that document selected
+  (proof: `build/verify/evidence/ux/ask-citation.png`, `citation-opened.png`).

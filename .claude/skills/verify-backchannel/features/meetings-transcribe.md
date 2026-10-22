@@ -83,3 +83,12 @@ for the summary; something audible on the system output while recording (for exa
   `element_token`, then `press_key return` with the same token.
 - Proven 2026-10-21 (run `fix-all`, `transcript-speaker-labels.txt`): meeting 6's four lines read
   `Speaker 1, system audio` with help `Speaker 1 · system audio`.
+
+### Build 39 (UX)
+- The section picker's third segment reads "Insights (N)" when the meeting has insights.
+- Summary shows one status strip (`id=summaryStatus`): "Summary by <model>" with "Summarize again",
+  or the blocking reason with a "Chat settings" button, or "Not summarized yet" with "Summarize meeting"
+  (proof: `build/verify/evidence/ux/summary-strip.png`).
+- With no meetings at all the detail pane shows "Your first meeting" with three steps and either
+  "Start transcribing" or "Not ready yet: …" plus "Open Setup". Not driven on the harness, whose
+  database already holds meetings.

@@ -106,3 +106,8 @@ hosted API with a key the user provides out of band).
   behavior, not the app's.
 - API keys are stored only in the Keychain item `dev.maulik.backchannel` / `endpoint-api-key`; do
   not type a real key during verification and do not read the Keychain back.
+
+### Build 39 (UX)
+- Every backend shows the same first section: "Answer with" picker, "Status" row, footer text.
+  Backend-specific rows follow in a "Model" or "Endpoint" section; Hub search is a disclosure
+  "Add from Hugging Face" inside Model (proof: `build/verify/evidence/ux/settings-chat.png`).
