@@ -8,9 +8,13 @@
 #   --notes     release notes; default is a one-line note plus GitHub's generated notes
 # Each release carries two copies of the same zip: Backchannel.zip (stable name for the
 # "latest" link) and Backchannel-<version>-<build>.zip. The tag is v<version>-<build>.
-# The zip is signed with the build's Apple Development certificate and not notarized;
-# a Developer ID certificate and notarization are needed before Gatekeeper opens it
-# without right-click > Open.
+# When the build is signed with a Developer ID Application certificate, the app is
+# submitted to Apple's notary service with the keychain profile named by NOTARY_PROFILE
+# (default "backchannel"; create it once with
+#   xcrun notarytool store-credentials backchannel --apple-id <id> --team-id <team> --password <app-specific>
+# ), stapled, and only then zipped, so Gatekeeper opens it with a plain double-click.
+# With an Apple Development certificate the zip is published as is and the notes tell
+# the user to open it the first time with right-click > Open.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -48,6 +52,24 @@ AUTHORITY="$(codesign -dvv "$APP" 2>&1 | sed -n 's/^Authority=//p' | head -n 1)"
 [[ -n "$AUTHORITY" ]] || { echo "$APP is signed ad-hoc; other Macs cannot open it. Set CODESIGN_IDENTITY and rebuild." >&2; exit 1; }
 codesign --verify --deep --strict "$APP"
 
+NOTARIZED=0
+if [[ "$AUTHORITY" == "Developer ID Application:"* ]]; then
+  NOTARY_PROFILE="${NOTARY_PROFILE:-backchannel}"
+  if (( DRY_RUN )); then
+    echo "dry run: would notarize with keychain profile '$NOTARY_PROFILE' and staple"
+  else
+    SUBMIT_ZIP="build/Backchannel-notarize.zip"
+    rm -f "$SUBMIT_ZIP"
+    ditto -c -k --keepParent "$APP" "$SUBMIT_ZIP"
+    xcrun notarytool submit "$SUBMIT_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait \
+      || { echo "notarization failed; see: xcrun notarytool log <id> --keychain-profile $NOTARY_PROFILE" >&2; exit 1; }
+    rm -f "$SUBMIT_ZIP"
+    xcrun stapler staple "$APP"
+    spctl --assess --type execute "$APP"
+    NOTARIZED=1
+  fi
+fi
+
 STABLE_ZIP="build/Backchannel.zip"
 VERSIONED_ZIP="build/Backchannel-$VERSION-$BUILD_NUMBER.zip"
 rm -f "$STABLE_ZIP" "$VERSIONED_ZIP"
@@ -56,7 +78,12 @@ cp "$VERSIONED_ZIP" "$STABLE_ZIP"
 echo "packaged $VERSIONED_ZIP ($(du -h "$VERSIONED_ZIP" | cut -f1)), signed by $AUTHORITY"
 
 if [[ -z "$NOTES" ]]; then
-  NOTES="Backchannel $VERSION (build $BUILD_NUMBER) for Apple-silicon Macs on macOS 27 or later. Signed with an Apple Development certificate and not notarized: open the first time with right-click > Open."
+  NOTES="Backchannel $VERSION (build $BUILD_NUMBER) for Apple-silicon Macs on macOS 27 or later."
+  if (( NOTARIZED )); then
+    NOTES+=" Signed with a Developer ID certificate and notarized by Apple."
+  else
+    NOTES+=" Signed with an Apple Development certificate and not notarized: open the first time with right-click > Open."
+  fi
 fi
 
 if gh release view "$TAG" >/dev/null 2>&1; then

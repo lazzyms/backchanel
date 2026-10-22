@@ -69,10 +69,10 @@
   <p class="note">Each release ships <code>Backchannel.zip</code> (always the newest build) and a copy named with its version and build number. Unzip and drag <code>Backchannel.app</code> into Applications.</p>
 
   <div class="warn">
-    <strong>First launch.</strong> Builds are signed with an Apple Development certificate and are not notarized by Apple,
-    so Gatekeeper blocks a plain double-click. Open it the first time with right-click › <strong>Open</strong>, or run
-    <code>xattr -dr com.apple.quarantine /Applications/Backchannel.app</code>. A Developer ID signature with notarization
-    would remove this step and is not in place yet.
+    <strong>First launch.</strong> Check the release notes. A release marked "notarized by Apple" opens with a double-click.
+    Earlier builds are signed with an Apple Development certificate and not notarized, so Gatekeeper blocks a plain
+    double-click: open them the first time with right-click › <strong>Open</strong>, or run
+    <code>xattr -dr com.apple.quarantine /Applications/Backchannel.app</code>.
   </div>
 
   <h2 id="requirements">Requirements</h2>

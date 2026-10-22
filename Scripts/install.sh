@@ -74,5 +74,9 @@ if (( ZIP )); then
   rm -f "$ZIP_PATH"
   ditto -c -k --keepParent "$TARGET" "$ZIP_PATH"
   echo "wrote $ZIP_PATH ($(du -h "$ZIP_PATH" | cut -f1))"
-  echo "The zip is signed with a development certificate and not notarized. On another Mac, open it the first time with right-click > Open, or run: xattr -dr com.apple.quarantine /Applications/Backchannel.app"
+  if [[ "$AUTHORITY" == "Developer ID Application:"* ]]; then
+    echo "The zip is signed with a Developer ID certificate but not notarized; Scripts/release.sh notarizes and staples before publishing."
+  else
+    echo "The zip is signed with a development certificate and not notarized. On another Mac, open it the first time with right-click > Open, or run: xattr -dr com.apple.quarantine /Applications/Backchannel.app"
+  fi
 fi
