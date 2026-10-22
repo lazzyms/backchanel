@@ -108,6 +108,11 @@ struct MeetingsView: View {
                 Text(subtitle(m)).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
+            Button { Task { await session.export() } } label: { Image(systemName: "square.and.arrow.up") }
+                .buttonStyle(.borderless)
+                .help("Export this meeting as Markdown: notes, summary, insights and transcript (⌘E)")
+                .accessibilityLabel("Export meeting")
+                .accessibilityIdentifier("exportMeeting")
             Picker("Section", selection: $tab) {
                 ForEach(Tab.allCases, id: \.self) { Text(label($0)).tag($0) }
             }

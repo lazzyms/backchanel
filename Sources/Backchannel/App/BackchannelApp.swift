@@ -25,6 +25,11 @@ struct BackchannelApp: App {
                     .keyboardShortcut("r", modifiers: [.command, .shift])
                     .disabled(model.session.state != .idle && model.session.state != .recording)
             }
+            CommandGroup(after: .saveItem) {
+                Button("Export Meeting…") { Task { await model.session.export() } }
+                    .keyboardShortcut("e", modifiers: .command)
+                    .disabled(model.session.meeting == nil)
+            }
         }
 
         Settings { SettingsView(model: model) }

@@ -167,6 +167,12 @@ final class MeetingSession {
         try? await store.renameSpeaker(from: old, to: new)
     }
 
+    /// Writes the shown meeting as Markdown where the user chooses.
+    func export() async {
+        guard let meeting else { return }
+        if let error = await MeetingExport.save(meeting, segments: segments, insights: insights) { errorMessage = error }
+    }
+
     /// Saves the user's notes for the shown meeting. Called on every keystroke; the write is one UPDATE.
     func setNotes(_ notes: String) async {
         guard let meeting, meeting.notes != notes else { return }
