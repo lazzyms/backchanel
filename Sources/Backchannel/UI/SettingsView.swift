@@ -138,6 +138,8 @@ struct MeetingSettingsView: View {
     @AppStorage("userName") private var userName = ""
     @AppStorage(Vocabulary.userDefaultsKey) private var vocabulary = ""
     @AppStorage(SpeakerRecognizer.thresholdKey) private var voiceThreshold = Double(SpeakerRecognizer.defaultThreshold)
+    @AppStorage(CalendarTitles.enabledKey) private var calendarTitles = false
+    @State private var calendarDenied = false
 
     var body: some View {
         Form {
@@ -147,6 +149,22 @@ struct MeetingSettingsView: View {
                 Text("Speakers")
             } footer: {
                 Text("Labels your microphone in transcripts. System audio is “Others” while a meeting runs; those voices are recognized after it stops and named Speaker 1, 2…. Right-click a line to rename one. Hover a name to see which route it came from.")
+            }
+            Section {
+                Toggle("Name meetings after the calendar event", isOn: $calendarTitles)
+                    .accessibilityIdentifier("calendarTitles")
+                    .onChange(of: calendarTitles) { _, on in
+                        guard on else { calendarDenied = false; return }
+                        Task { calendarDenied = !(await CalendarTitles.requestAccess()) }
+                    }
+                if calendarDenied {
+                    Text("Calendar access is off. Allow Backchannel under System Settings › Privacy & Security › Calendars.")
+                        .font(.caption).foregroundStyle(.red)
+                }
+            } header: {
+                Text("Calendar")
+            } footer: {
+                Text("A new meeting takes the title of the event under way, or starting within ten minutes. Without one, or with this off, it is named by date and time. The calendar is only read.")
             }
             Section {
                 LabeledContent("Same voice above") {

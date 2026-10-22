@@ -153,7 +153,8 @@ final class AppModel {
     func toggleTranscribing() {
         switch session.state {
         case .idle:
-            let title = "Meeting " + Date().formatted(date: .abbreviated, time: .shortened)
+            let title = CalendarTitles.currentEventTitle()
+                ?? "Meeting " + Date().formatted(date: .abbreviated, time: .shortened)
             Task { await session.start(title: title) }
         case .recording:
             Task { await session.stop() }
