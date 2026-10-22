@@ -8,7 +8,7 @@ struct MeetingsView: View {
     @State private var pendingDelete: Meeting?
     @State private var insightDraft = ""
 
-    enum Tab: String, CaseIterable { case transcript = "Transcript", summary = "Summary", insights = "Insights" }
+    enum Tab: String, CaseIterable { case transcript = "Transcript", summary = "Summary", insights = "Insights", notes = "Notes" }
 
     private var session: MeetingSession { model.session }
     /// The meeting shown in the detail: the live one while transcribing, else the selection.
@@ -24,7 +24,7 @@ struct MeetingsView: View {
         .confirmationDialog("Delete “\(pendingDelete?.title ?? "")”?", isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }), presenting: pendingDelete) { m in
             Button("Delete Meeting", role: .destructive) { Task { await model.deleteMeeting(m) } }
         } message: { _ in
-            Text("The transcript, summary and insights are removed. This cannot be undone.")
+            Text("The transcript, summary, insights and notes are removed. This cannot be undone.")
         }
         .onChange(of: selected) { _, m in if let m { Task { await session.loadHistory(m) } } }
         .onChange(of: session.state) { _, s in if s == .recording { selected = session.meeting } }
@@ -90,6 +90,7 @@ struct MeetingsView: View {
                 case .transcript: TranscriptList(session: session, userName: MeetingSession.userName)
                 case .summary: summary
                 case .insights: insights
+                case .notes: NotesEditor(session: session)
                 }
             }
         } else if model.meetings.isEmpty {
@@ -122,6 +123,7 @@ struct MeetingsView: View {
         case .transcript: t.rawValue
         case .summary: t.rawValue
         case .insights: session.insights.isEmpty ? t.rawValue : "\(t.rawValue) (\(session.insights.count))"
+        case .notes: (session.meeting?.notes.isEmpty ?? true) ? t.rawValue : "\(t.rawValue) •"
         }
     }
 
@@ -218,6 +220,29 @@ struct MeetingsView: View {
         guard !q.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !session.answering else { return }
         insightDraft = ""
         Task { await session.ask(q) }
+    }
+}
+
+/// Free text per meeting, saved as it is typed. Markdown is kept as written and exported as such.
+struct NotesEditor: View {
+    @Bindable var session: MeetingSession
+    @State private var text = ""
+
+    var body: some View {
+        TextEditor(text: $text)
+            .font(.body)
+            .scrollContentBackground(.hidden)
+            .padding(12)
+            .accessibilityIdentifier("meetingNotes")
+            .overlay(alignment: .topLeading) {
+                if text.isEmpty {
+                    Text("Your own notes for this meeting. Saved as you type; included when the meeting is exported.")
+                        .foregroundStyle(.tertiary).padding(.top, 12).padding(.leading, 17).allowsHitTesting(false)
+                }
+            }
+            .onAppear { text = session.meeting?.notes ?? "" }
+            .onChange(of: session.meeting?.id) { text = session.meeting?.notes ?? "" }
+            .onChange(of: text) { Task { await session.setNotes(text) } }
     }
 }
 

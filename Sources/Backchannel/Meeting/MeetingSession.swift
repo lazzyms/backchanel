@@ -167,6 +167,13 @@ final class MeetingSession {
         try? await store.renameSpeaker(from: old, to: new)
     }
 
+    /// Saves the user's notes for the shown meeting. Called on every keystroke; the write is one UPDATE.
+    func setNotes(_ notes: String) async {
+        guard let meeting, meeting.notes != notes else { return }
+        self.meeting?.notes = notes
+        try? await store.setNotes(meetingId: meeting.id, notes)
+    }
+
     /// The user answered the checkpoint prompt with "keep going". Nothing else changes.
     func continueSession() {
         checkpointPromptVisible = false

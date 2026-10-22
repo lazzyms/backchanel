@@ -70,10 +70,15 @@ actor Store {
     // MARK: Meetings
 
     func meetings() async throws -> [Meeting] {
-        try await db.query("SELECT id,title,started_at,ended_at,summary FROM meetings ORDER BY started_at DESC") { r in
+        try await db.query("SELECT id,title,started_at,ended_at,summary,notes FROM meetings ORDER BY started_at DESC") { r in
             Meeting(id: r.int(0), title: r.text(1), startedAt: Date(timeIntervalSince1970: r.double(2)),
-                    endedAt: r.optionalText(3).map { _ in Date(timeIntervalSince1970: r.double(3)) }, summary: r.optionalText(4))
+                    endedAt: r.optionalText(3).map { _ in Date(timeIntervalSince1970: r.double(3)) }, summary: r.optionalText(4),
+                    notes: r.optionalText(5) ?? "")
         }
+    }
+
+    func setNotes(meetingId: Int64, _ notes: String) async throws {
+        try await db.run("UPDATE meetings SET notes=? WHERE id=?", [.text(notes), .int(meetingId)])
     }
 
     func setSummary(meetingId: Int64, _ summary: String) async throws {
