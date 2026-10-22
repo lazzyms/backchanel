@@ -34,6 +34,20 @@ meetings, recorded time, sources, labels and answered questions.
 - **Live Q&A**: final transcript segments that look like questions are checked by the on-device
   model, matched against your sources by embedding, and answered in the right-hand pane. Answers
   are stored with the meeting.
+- **Vocabulary**: words the speech model mishears ("hola sale" for "wholesale") are corrected in
+  transcript lines and questions before retrieval. Source titles and labels count automatically;
+  add your own under Settings › Meetings › Vocabulary. Hover a corrected line to see what was heard.
+- **Notes and export**: a Notes section beside each meeting, and ⌘E (or the share button) writes
+  the meeting as Markdown: notes, summary, insights with sources, and the timestamped transcript.
+- **Calendar titles**: with Settings › Meetings › Calendar on, a new meeting is named after the
+  calendar event under way (read-only access, asked once).
+
+## Known limitations
+
+- The voice-match threshold (0.75) is adjustable but has not been tuned on real data; use
+  voice-matches.tsv to see where matches and misses fall.
+- Releases are notarized only when a Developer ID certificate is in the keychain; otherwise the
+  first launch needs right-click > **Open**.
 
 ## Requirements
 
