@@ -128,7 +128,7 @@ struct CitationRow: View {
                 Image(systemName: "doc.text")
                 ForEach(titles, id: \.self) { t in
                     Button(t) { open(t) }
-                        .buttonStyle(.plain).foregroundStyle(.tint).lineLimit(1)
+                        .buttonStyle(.link).lineLimit(1)
                         .help("Open “\(t)” under Sources")
                 }
             }
