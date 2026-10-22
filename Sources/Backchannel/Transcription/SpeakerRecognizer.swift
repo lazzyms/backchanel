@@ -53,7 +53,15 @@ enum SpeakerRecognizer {
     static let modelsDirectory = Store.appSupport.appendingPathComponent("models/diarization", isDirectory: true)
     /// Cosine similarity needed to call a cluster the same person as a stored voice. The diarizer's
     /// own clustering threshold is about 0.82 cosine; cross-meeting matching is looser on purpose.
-    static let matchThreshold: Float = 0.75
+    /// Set under Settings › Meetings; every decision is appended to `matchLog` so it can be tuned
+    /// on real meetings instead of a guess.
+    static let defaultThreshold: Float = 0.75
+    static let thresholdKey = "voiceMatchThreshold"
+    static var matchThreshold: Float {
+        get { UserDefaults.standard.object(forKey: thresholdKey).flatMap { $0 as? Double }.map { Float($0) } ?? defaultThreshold }
+        set { UserDefaults.standard.set(Double(min(0.95, max(0.5, newValue))), forKey: thresholdKey) }
+    }
+    static let matchLog = Store.appSupport.appendingPathComponent("voice-matches.tsv")
 
     /// Whether `prepareModels(directory:)` would find everything on disk. Mirrors FluidAudio's own
     /// cache check: every required offline-diarizer file under `<directory>/<repo folder>`.
@@ -71,13 +79,32 @@ enum SpeakerRecognizer {
         var newSpeakers: [(name: String, embedding: [Float])]
         /// Existing speakers whose voice embedding should drift towards this meeting's sample.
         var refreshed: [(id: Int64, embedding: [Float])]
+        /// One line per cluster: its name, the closest stored voice and that score, for the log.
+        var decisions: [(cluster: String, name: String, closest: String?, score: Float)] = []
     }
 
-    static func recognize(audio url: URL, segments: [TranscriptSegment], known: [KnownSpeaker]) async throws -> Assignment {
+    static func recognize(audio url: URL, segments: [TranscriptSegment], known: [KnownSpeaker], meeting: String) async throws -> Assignment {
         let manager = OfflineDiarizerManager()
         try await manager.prepareModels(directory: modelsDirectory)
         let result = try await manager.process(url)
-        return assign(result, segments: segments, known: known)
+        let assignment = assign(result, segments: segments, known: known)
+        log(assignment, meeting: meeting)
+        return assignment
+    }
+
+    /// Appends one tab-separated line per cluster: when, which meeting, the name given, the closest
+    /// stored voice, its cosine score and the threshold in force. Read it to see where real
+    /// matches and misses fall before moving the slider.
+    static func log(_ a: Assignment, meeting: String) {
+        let stamp = Date().formatted(.iso8601)
+        let threshold = String(format: "%.2f", matchThreshold)
+        var text = ""
+        if !FileManager.default.fileExists(atPath: matchLog.path) { text = "when\tmeeting\tcluster\tnamed\tclosest\tscore\tthreshold\n" }
+        for d in a.decisions {
+            text += "\(stamp)\t\(meeting)\t\(d.cluster)\t\(d.name)\t\(d.closest ?? "-")\t\(String(format: "%.3f", d.score))\t\(threshold)\n"
+        }
+        if let h = try? FileHandle(forWritingTo: matchLog) { h.seekToEndOfFile(); h.write(Data(text.utf8)); try? h.close() }
+        else { try? text.write(to: matchLog, atomically: true, encoding: .utf8) }
     }
 
     static func assign(_ result: DiarizationResult, segments: [TranscriptSegment], known: [KnownSpeaker]) -> Assignment {
@@ -110,6 +137,10 @@ enum SpeakerRecognizer {
             names[cluster] = "Speaker \(n)"
             if let emb = clusters[cluster] { assignment.newSpeakers.append(("Speaker \(n)", emb)) }
             n += 1
+        }
+        for cluster in Set(order) {
+            let closest = candidates.filter { $0.cluster == cluster }.max { $0.score < $1.score }
+            assignment.decisions.append((cluster, names[cluster] ?? "?", closest?.known.name, closest?.score ?? 0))
         }
         // Each transcript line takes the cluster that overlaps it most in time.
         for seg in segments where seg.speaker == .them && seg.isFinal {

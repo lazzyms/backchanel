@@ -137,6 +137,7 @@ struct MeetingSettingsView: View {
     var library: SourceLibrary
     @AppStorage("userName") private var userName = ""
     @AppStorage(Vocabulary.userDefaultsKey) private var vocabulary = ""
+    @AppStorage(SpeakerRecognizer.thresholdKey) private var voiceThreshold = Double(SpeakerRecognizer.defaultThreshold)
 
     var body: some View {
         Form {
@@ -146,6 +147,24 @@ struct MeetingSettingsView: View {
                 Text("Speakers")
             } footer: {
                 Text("Labels your microphone in transcripts. System audio is “Others” while a meeting runs; those voices are recognized after it stops and named Speaker 1, 2…. Right-click a line to rename one. Hover a name to see which route it came from.")
+            }
+            Section {
+                LabeledContent("Same voice above") {
+                    Slider(value: $voiceThreshold, in: 0.5...0.95, step: 0.01) { Text("Voice match") }
+                        .frame(width: 180).accessibilityIdentifier("voiceThreshold")
+                    Text(voiceThreshold.formatted(.number.precision(.fractionLength(2)))).monospacedDigit().frame(width: 36, alignment: .trailing)
+                }
+                LabeledContent("Decisions") {
+                    Button("Show log") { NSWorkspace.shared.activateFileViewerSelecting([SpeakerRecognizer.matchLog]) }
+                        .disabled(!FileManager.default.fileExists(atPath: SpeakerRecognizer.matchLog.path))
+                    Button("Reset to \(SpeakerRecognizer.defaultThreshold.formatted(.number.precision(.fractionLength(2))))") {
+                        voiceThreshold = Double(SpeakerRecognizer.defaultThreshold)
+                    }
+                }
+            } header: {
+                Text("Voice matching")
+            } footer: {
+                Text("A voice heard after a meeting is called the same person as a stored voice when their similarity is above this. Lower it if the same person keeps getting a new Speaker number; raise it if different people get merged. Each decision, with its score, is appended to voice-matches.tsv so you can see where real matches and misses fall.")
             }
             Section {
                 TextEditor(text: $vocabulary)

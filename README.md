@@ -25,7 +25,7 @@ meetings, recorded time, sources, labels and answered questions.
 - **Speaker recognition**: system audio is also written to a 16 kHz WAV during the meeting. On stop,
   FluidAudio's offline diarizer (pyannote segmentation + WeSpeaker embeddings, Core ML, models
   downloaded once into Application Support) splits it by voice; each transcript line takes the
-  voice that overlaps it most. Voices are matched against earlier meetings (cosine ≥ 0.75) or named
+  voice that overlaps it most. Voices are matched against earlier meetings (cosine above the threshold under Settings › Meetings, 0.75 by default; every decision is logged to voice-matches.tsv) or named
   "Speaker N". Right-click a line to rename a voice; the name propagates to every meeting.
 - **Never stops on its own**: every 30 minutes (interval and on/off in Settings › Meetings) the capsule asks "Keep going?" with a chime. The
   transcript continues until you press Stop.
