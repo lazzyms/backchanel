@@ -108,36 +108,77 @@ struct MeetingsView: View {
             }
             Spacer()
             Picker("Section", selection: $tab) {
-                ForEach(Tab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                ForEach(Tab.allCases, id: \.self) { Text(label($0)).tag($0) }
             }
             .pickerStyle(.segmented).labelsHidden().fixedSize()
+            .help("Transcript is what was heard. Summary is written when the meeting stops. Insights are questions heard in the meeting, answered from your sources.")
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
     }
 
+    /// Count in the segment label so the picker says what is behind it before it is opened.
+    private func label(_ t: Tab) -> String {
+        switch t {
+        case .transcript: t.rawValue
+        case .summary: t.rawValue
+        case .insights: session.insights.isEmpty ? t.rawValue : "\(t.rawValue) (\(session.insights.count))"
+        }
+    }
+
+    /// Every state the summary pane can be in, derived once so the strip and the action agree.
+    private enum SummaryState {
+        case working(String), written(String), blocked(String), waiting(String), ready
+    }
+
+    private var summaryState: SummaryState {
+        if session.state == .recognizing { return .working("Recognizing speakers…") }
+        if session.state == .summarizing { return .working("Writing summary with \(model.chatModels.displayName)…") }
+        if let s = session.meeting?.summary { return .written(s) }
+        if let why = model.chatModels.availability { return .blocked(why) }
+        if session.segments.isEmpty { return .waiting("Nothing to summarize yet.") }
+        if session.isActive { return .waiting("Written when the meeting stops.") }
+        return .ready
+    }
+
     private var summary: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                if session.state == .recognizing {
-                    HStack { ProgressView().controlSize(.small); Text("Recognizing speakers…").foregroundStyle(.secondary) }
-                } else if session.state == .summarizing {
-                    HStack { ProgressView().controlSize(.small); Text("Writing summary with \(model.chatModels.displayName)…").foregroundStyle(.secondary) }
-                } else if let s = session.meeting?.summary {
-                    Text(LocalizedStringKey(s)).textSelection(.enabled)
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                switch summaryState {
+                case .working(let text):
+                    ProgressView().controlSize(.small); Text(text)
+                case .written:
+                    Image(systemName: "checkmark.circle").foregroundStyle(.green)
+                    Text("Summary by \(model.chatModels.displayName)")
+                    Spacer()
                     Button("Summarize again") { Task { await session.summarize() } }.disabled(session.state != .idle)
-                } else if let why = model.chatModels.availability {
-                    Text(why).foregroundStyle(.secondary)
-                } else if session.segments.isEmpty {
-                    Text("Nothing to summarize yet.").foregroundStyle(.secondary)
-                } else if session.isActive {
-                    Text("The summary is written when the meeting stops.").foregroundStyle(.secondary)
-                } else {
+                case .blocked(let why):
+                    Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange); Text(why)
+                    Spacer()
+                    Button("Chat settings") { model.settingsTab = .chat; openSettings() }
+                case .waiting(let text):
+                    Image(systemName: "clock").foregroundStyle(.secondary); Text(text)
+                case .ready:
+                    Image(systemName: "text.badge.checkmark").foregroundStyle(.secondary); Text("Not summarized yet.")
+                    Spacer()
                     Button("Summarize meeting") { Task { await session.summarize() } }
                 }
             }
-            .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+            .font(.callout).foregroundStyle(.secondary).controlSize(.small)
+            .padding(.horizontal, 16).padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.quaternary.opacity(0.4))
+            .accessibilityIdentifier("summaryStatus")
+            Divider()
+            ScrollView {
+                if case .written(let s) = summaryState {
+                    Text(LocalizedStringKey(s)).textSelection(.enabled)
+                        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
         }
     }
+
+    @Environment(\.openSettings) private var openSettings
 
     private var insights: some View {
         VStack(spacing: 0) {
