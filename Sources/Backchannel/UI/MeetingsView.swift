@@ -239,6 +239,11 @@ struct TranscriptList: View {
                         .help(seg.speaker == .me ? "\(seg.name) · your microphone" : "\(seg.name) · system audio")
                         .accessibilityLabel(seg.speaker == .me ? "\(seg.name), microphone" : "\(seg.name), system audio")
                     Text(seg.text).foregroundStyle(seg.isFinal ? .primary : .secondary).textSelection(.enabled)
+                        .help(seg.heard.map { "Heard as “\($0)”; corrected from your vocabulary" } ?? "")
+                    if seg.heard != nil {
+                        Image(systemName: "text.badge.checkmark").font(.caption2).foregroundStyle(.tertiary)
+                            .help("Corrected from your vocabulary").accessibilityLabel("corrected")
+                    }
                     Spacer(minLength: 0)
                     Text(seg.startSec.clock).font(.caption2).monospacedDigit().foregroundStyle(.tertiary)
                 }

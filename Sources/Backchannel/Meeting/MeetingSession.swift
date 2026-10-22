@@ -193,6 +193,10 @@ final class MeetingSession {
     }
 
     private func receive(_ segment: TranscriptSegment) {
+        var segment = segment
+        if segment.isFinal, let fixed = library.vocabulary.correct(segment.text) {
+            segment.heard = segment.text; segment.text = fixed
+        }
         if let i = segments.firstIndex(where: { $0.id == segment.id }) {
             segments[i] = segment
         } else {

@@ -5,7 +5,9 @@ import Observation
 @MainActor
 @Observable
 final class SourceLibrary {
-    private(set) var sources: [Source] = []
+    private(set) var sources: [Source] = [] { didSet { refreshVocabulary() } }
+    /// Domain words from titles, labels and Settings; repairs transcripts and questions. See `Vocabulary`.
+    private(set) var vocabulary = Vocabulary.empty
     private(set) var edges: [(Int64, Int64, Float)] = []
     private(set) var importing: [String] = []
     var errorMessage: String?
@@ -62,6 +64,8 @@ final class SourceLibrary {
         }
         return (Vectors.mean(chunks.map(\.1)), chunks)
     }
+
+    func refreshVocabulary() { vocabulary = .fromSources(sources) }
 
     func reload() async {
         sources = (try? await store.sources()) ?? []
@@ -137,6 +141,7 @@ final class SourceLibrary {
     /// Searches every source chunk plus meeting transcripts; with `meetingID` only that meeting's
     /// transcript joins the sources, so a scoped chat never cites another meeting.
     func retrieve(_ query: String, limit: Int = 5, meetingID: Int64? = nil) async throws -> [RetrievedPassage] {
+        let query = vocabulary.correct(query) ?? query
         let queryVector = try? await embedder?.embed([query], task: .query).first
         let titles = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0.title) })
         var passages = try await store.allChunks().map {

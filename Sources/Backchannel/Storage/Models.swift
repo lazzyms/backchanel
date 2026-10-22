@@ -51,6 +51,8 @@ struct TranscriptSegment: Identifiable, Hashable, Sendable {
     var startSec: Double
     var endSec: Double
     var isFinal: Bool
+    /// The engine's words before a vocabulary correction changed `text`; nil when nothing was changed.
+    var heard: String? = nil
 }
 
 /// A voice heard in earlier meetings, with its wespeaker embedding so it is recognised again.

@@ -24,7 +24,7 @@ struct SettingsView: View {
                 WatchedFoldersView(watcher: model.watcher)
             }
             Tab("Meetings", systemImage: "waveform", value: .meetings) {
-                MeetingSettingsView(session: model.session)
+                MeetingSettingsView(session: model.session, library: model.library)
             }
         }
         .frame(width: 560, height: 480)
@@ -134,7 +134,9 @@ struct ChatSettingsView: View {
 
 struct MeetingSettingsView: View {
     @Bindable var session: MeetingSession
+    var library: SourceLibrary
     @AppStorage("userName") private var userName = ""
+    @AppStorage(Vocabulary.userDefaultsKey) private var vocabulary = ""
 
     var body: some View {
         Form {
@@ -144,6 +146,16 @@ struct MeetingSettingsView: View {
                 Text("Speakers")
             } footer: {
                 Text("Labels your microphone in transcripts. System audio is “Others” while a meeting runs; those voices are recognized after it stops and named Speaker 1, 2…. Right-click a line to rename one. Hover a name to see which route it came from.")
+            }
+            Section {
+                TextEditor(text: $vocabulary)
+                    .font(.body).frame(minHeight: 70)
+                    .accessibilityIdentifier("vocabulary")
+                    .onChange(of: vocabulary) { library.refreshVocabulary() }
+            } header: {
+                Text("Vocabulary")
+            } footer: {
+                Text("Words the speech model tends to mishear, one per line: product names, trade terms, people. Words from your source titles and labels are included already. A transcript line or question that sounds like one of them is corrected before it is searched; hover a corrected line to see what was heard.")
             }
             Section {
                 Toggle("Ask whether to keep going", isOn: $session.checkpointEnabled)

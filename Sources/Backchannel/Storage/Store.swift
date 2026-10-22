@@ -104,15 +104,16 @@ actor Store {
     }
 
     func appendSegment(meetingId: Int64, _ s: TranscriptSegment) async throws {
-        try await db.run("INSERT INTO segments(meeting_id,speaker,speaker_name,text,start_sec,end_sec) VALUES(?,?,?,?,?,?)",
-                         [.int(meetingId), .text(s.speaker.rawValue), .text(s.name), .text(s.text), .double(s.startSec), .double(s.endSec)])
+        try await db.run("INSERT INTO segments(meeting_id,speaker,speaker_name,text,start_sec,end_sec,heard) VALUES(?,?,?,?,?,?,?)",
+                         [.int(meetingId), .text(s.speaker.rawValue), .text(s.name), .text(s.text), .double(s.startSec), .double(s.endSec),
+                          s.heard.map { .text($0) } ?? .null])
     }
 
     func segments(meetingId: Int64) async throws -> [TranscriptSegment] {
-        try await db.query("SELECT speaker,text,start_sec,end_sec,speaker_name FROM segments WHERE meeting_id=? ORDER BY start_sec", [.int(meetingId)]) { r in
+        try await db.query("SELECT speaker,text,start_sec,end_sec,speaker_name,heard FROM segments WHERE meeting_id=? ORDER BY start_sec", [.int(meetingId)]) { r in
             let sp = Speaker(rawValue: r.text(0)) ?? .them
             return TranscriptSegment(id: "\(sp.rawValue)-\(r.double(2))", speaker: sp, name: r.optionalText(4) ?? sp.rawValue,
-                                     text: r.text(1), startSec: r.double(2), endSec: r.double(3), isFinal: true)
+                                     text: r.text(1), startSec: r.double(2), endSec: r.double(3), isFinal: true, heard: r.optionalText(5))
         }
     }
 
