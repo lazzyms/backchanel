@@ -25,7 +25,7 @@ meetings, recorded time, sources, labels and answered questions.
 - **Speaker recognition**: system audio is also written to a 16 kHz WAV during the meeting. On stop,
   FluidAudio's offline diarizer (pyannote segmentation + WeSpeaker embeddings, Core ML, models
   downloaded once into Application Support) splits it by voice; each transcript line takes the
-  voice that overlaps it most. Voices are matched against earlier meetings (cosine ≥ 0.75) or named
+  voice that overlaps it most. Voices are matched against earlier meetings (cosine above the threshold under Settings › Meetings, 0.75 by default; every decision is logged to voice-matches.tsv) or named
   "Speaker N". Right-click a line to rename a voice; the name propagates to every meeting.
 - **Never stops on its own**: every 30 minutes (interval and on/off in Settings › Meetings) the capsule asks "Keep going?" with a chime. The
   transcript continues until you press Stop.
@@ -34,6 +34,20 @@ meetings, recorded time, sources, labels and answered questions.
 - **Live Q&A**: final transcript segments that look like questions are checked by the on-device
   model, matched against your sources by embedding, and answered in the right-hand pane. Answers
   are stored with the meeting.
+- **Vocabulary**: words the speech model mishears ("hola sale" for "wholesale") are corrected in
+  transcript lines and questions before retrieval. Source titles and labels count automatically;
+  add your own under Settings › Meetings › Vocabulary. Hover a corrected line to see what was heard.
+- **Notes and export**: a Notes section beside each meeting, and ⌘E (or the share button) writes
+  the meeting as Markdown: notes, summary, insights with sources, and the timestamped transcript.
+- **Calendar titles**: with Settings › Meetings › Calendar on, a new meeting is named after the
+  calendar event under way (read-only access, asked once).
+
+## Known limitations
+
+- The voice-match threshold (0.75) is adjustable but has not been tuned on real data; use
+  voice-matches.tsv to see where matches and misses fall.
+- Releases are notarized only when a Developer ID certificate is in the keychain; otherwise the
+  first launch needs right-click > **Open**.
 
 ## Requirements
 
@@ -57,14 +71,15 @@ running unless you pass `--force`, which quits that copy first. It prints the in
 version and build number, and the signing identity, and it does not launch the app. Pass `--debug`
 to install a debug build.
 
-The build is signed with the first "Apple Development" identity in your keychain, or with
-`CODESIGN_IDENTITY` when set. A stable identity means macOS keeps the Microphone and Screen & System
+The build is signed with the first "Developer ID Application" identity in your keychain, else the
+first "Apple Development" one, or with `CODESIGN_IDENTITY` when set. A stable identity means macOS keeps the Microphone and Screen & System
 Audio Recording grants across reinstalls. Without an identity the app is signed ad-hoc, and macOS
 asks for both grants again after each reinstall.
 
-Pass `--zip` to also write `build/Backchannel-<version>.zip` for another Mac. The zip is signed
-with a development certificate and not notarized, so the first launch there needs right-click >
-**Open**, or `xattr -dr com.apple.quarantine /Applications/Backchannel.app`.
+Pass `--zip` to also write `build/Backchannel-<version>.zip` for another Mac. With a development
+certificate the zip is not notarized, so the first launch there needs right-click > **Open**, or
+`xattr -dr com.apple.quarantine /Applications/Backchannel.app`. Publish through the release script
+below for a build that opens with a double-click.
 
 ### Release
 
@@ -74,9 +89,14 @@ with a development certificate and not notarized, so the first launch there need
 `Backchannel-<version>-<build>.zip`. It needs a clean working tree and `gh auth login`. Pass
 `--no-build` to package the existing `build/Backchannel.app`, `--dry-run` to see what it would
 publish, `--notes "text"` for custom notes. The landing page under `docs/` is hosted on Netlify at https://backchannel-mac.netlify.app and
-links to those assets; redeploy it with `npx netlify-cli deploy --prod --dir docs --site backchannel-mac`. Releases are signed with
-the Apple Development certificate and not notarized; a Developer ID certificate plus notarization
-is needed before Gatekeeper opens them without right-click > **Open**.
+links to those assets; redeploy it with `npx netlify-cli deploy --prod --dir docs --site backchannel-mac`. When a "Developer ID
+Application" certificate is in the keychain, the app is signed with it under the hardened runtime,
+notarized through `xcrun notarytool` with the keychain profile `NOTARY_PROFILE` (default
+`backchannel`) and stapled before it is zipped, so Gatekeeper opens it with a double-click. Store
+the credentials once with `xcrun notarytool store-credentials backchannel --apple-id <id> --team-id
+<team> --password <app-specific-password>`; the certificate comes from the paid Apple Developer
+Program. Without one, releases carry the Apple Development signature and the notes say to open the
+first time with right-click > **Open**.
 
 ### Build only
 

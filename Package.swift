@@ -54,6 +54,7 @@ let package = Package(
                 .linkedFramework("PDFKit"),
                 .linkedFramework("Vision"),
                 .linkedFramework("Security"),
+                .linkedFramework("EventKit"),
             ]
         ),
     ]

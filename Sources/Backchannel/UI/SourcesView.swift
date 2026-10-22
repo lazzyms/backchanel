@@ -8,6 +8,24 @@ struct SourcesView: View {
     @State private var selected: Source?
     @State private var showGraph = true
     @State private var isDropTarget = false
+    @State private var query = ""
+    /// nil shows every label.
+    @State private var labelFilter: String?
+
+    private var labels: [String] {
+        Array(Set(library.sources.compactMap(\.label))).sorted()
+    }
+
+    /// The list after search and label filter. Search matches title, label or path, case-insensitively.
+    private var shown: [Source] {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        return library.sources.filter { s in
+            (labelFilter == nil || s.label == labelFilter)
+            && (q.isEmpty || s.title.localizedCaseInsensitiveContains(q)
+                || (s.label?.localizedCaseInsensitiveContains(q) ?? false)
+                || s.path.localizedCaseInsensitiveContains(q))
+        }
+    }
 
     var body: some View {
         HSplitView {
@@ -44,17 +62,48 @@ struct SourcesView: View {
             return true
         }
         .task { await library.reload() }
+        .onAppear(perform: showRequested)
+        .onChange(of: model.requestedSource) { _, _ in showRequested() }
         .alert("Import failed", isPresented: Binding(get: { library.errorMessage != nil }, set: { if !$0 { library.errorMessage = nil } })) {
             Button("OK") {}
         } message: { Text(library.errorMessage ?? "") }
     }
 
+    private func showRequested() {
+        guard let s = model.requestedSource else { return }
+        selected = s
+        showGraph = false
+        model.requestedSource = nil
+    }
+
     private var list: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 6) {
+                TextField("Search sources", text: $query)
+                    .textFieldStyle(.roundedBorder).controlSize(.small)
+                    .accessibilityIdentifier("sourceSearch")
+                if !labels.isEmpty {
+                    Picker("Label", selection: $labelFilter) {
+                        Text("All labels").tag(String?.none)
+                        ForEach(labels, id: \.self) { Text($0).tag(String?.some($0)) }
+                    }
+                    .labelsHidden().pickerStyle(.menu).controlSize(.small).fixedSize()
+                    .accessibilityIdentifier("labelFilter")
+                    .help("Show only sources with this label")
+                }
+            }
+            .padding(8)
+            Divider()
+            sourceRows
+        }
+    }
+
+    private var sourceRows: some View {
         List(selection: $selected) {
             if !library.importing.isEmpty {
                 Section { ForEach(library.importing, id: \.self) { n in HStack { ProgressView().controlSize(.small); Text("Importing \(n)…").font(.caption) } } }
             }
-            ForEach(library.sources) { s in
+            ForEach(shown) { s in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
                         Image(systemName: icon(s.kind)).foregroundStyle(.secondary)
@@ -76,7 +125,9 @@ struct SourcesView: View {
         .accessibilityLabel("Sources")
         .accessibilityIdentifier("sourcesList")
         .overlay {
-            if library.sources.isEmpty && library.importing.isEmpty {
+            if shown.isEmpty && !library.sources.isEmpty {
+                ContentUnavailableView.search(text: query.isEmpty ? (labelFilter ?? "") : query)
+            } else if library.sources.isEmpty && library.importing.isEmpty {
                 ContentUnavailableView {
                     Label("Build your knowledge library", systemImage: "folder")
                 } description: {
@@ -88,7 +139,9 @@ struct SourcesView: View {
         }
         .safeAreaInset(edge: .bottom) {
             HStack {
-                Text(library.reembedding ? "Re-embedding with \(library.embedderName)…" : "\(library.sources.count) sources · \(library.embedderName)")
+                Text(library.reembedding ? "Re-embedding with \(library.embedderName)…"
+                     : shown.count == library.sources.count ? "\(library.sources.count) sources · \(library.embedderName)"
+                     : "\(shown.count) of \(library.sources.count) sources · \(library.embedderName)")
                 Spacer()
                 Button("Models…") { model.settingsTab = .embedding; openSettings() }.buttonStyle(.link)
                     .help("Choose the embedding model under Settings › Embedding")

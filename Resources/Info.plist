@@ -35,6 +35,8 @@
     <string>Backchannel transcribes meetings from your microphone, fully on device.</string>
     <key>NSAudioCaptureUsageDescription</key>
     <string>Backchannel captures system audio so the other side of a meeting can be transcribed on device.</string>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Backchannel reads the calendar event happening now to name a new meeting after it. It never changes your calendar.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>Backchannel uses on-device speech recognition to transcribe meetings.</string>
 </dict>

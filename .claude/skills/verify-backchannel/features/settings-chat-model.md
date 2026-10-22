@@ -106,3 +106,16 @@ hosted API with a key the user provides out of band).
   behavior, not the app's.
 - API keys are stored only in the Keychain item `dev.maulik.backchannel` / `endpoint-api-key`; do
   not type a real key during verification and do not read the Keychain back.
+
+### Build 39 (UX)
+- Every backend shows the same first section: "Answer with" picker, "Status" row, footer text.
+  Backend-specific rows follow in a "Model" or "Endpoint" section; Hub search is a disclosure
+  "Add from Hugging Face" inside Model (proof: `build/verify/evidence/ux/settings-chat.png`).
+
+### Build 46 (Settings › Meetings)
+- Proved 2026-10-22 (run `issues`, `settings-meetings.png`): the tab shows Speakers, Calendar
+  (toggle `calendarTitles`), Voice matching (slider `voiceThreshold`, "Show log", "Reset to 0.75"),
+  Vocabulary (text area `vocabulary`) and Checkpoints. `press_key left` on the slider with a fresh
+  token wrote `voiceMatchThreshold` 0.74 and Reset wrote 0.75; `set_value` on the slider does
+  nothing. `set_value` on `vocabulary` wrote the `vocabulary` default. Not driven: a corrected Ask
+  question, and the calendar toggle (it raises the Calendars permission prompt).

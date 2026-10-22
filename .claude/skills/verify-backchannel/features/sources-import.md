@@ -68,3 +68,8 @@ shows an EmbeddingGemma directory); note the current count from
   the rationale says so. Both are valid.
 - Image sources also get a vision chunk when the chosen model has vision; PDFs rely on PDFKit text
   extraction and scanned PDFs yield little text.
+
+### Build 39 (UX)
+- `AXTextField id=sourceSearch` filters by title, label or path; the footer reads "52 of 855 sources"
+  after typing "candle" (proof: `build/verify/evidence/ux/sources-search.png`).
+- `AXPopUpButton id=labelFilter` narrows to one label; "All labels" shows everything.

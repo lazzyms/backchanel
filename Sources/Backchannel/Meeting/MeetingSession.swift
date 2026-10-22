@@ -120,7 +120,7 @@ final class MeetingSession {
             // The mic is the user, so a saved voice carrying the user's name never labels system audio.
             let me = Self.userName
             let known = try await store.speakers().filter { $0.name.caseInsensitiveCompare(me) != .orderedSame }
-            let result = try await SpeakerRecognizer.recognize(audio: audio, segments: segments, known: known)
+            let result = try await SpeakerRecognizer.recognize(audio: audio, segments: segments, known: known, meeting: meeting.title)
             for (name, emb) in result.newSpeakers { _ = try await store.insertSpeaker(name: name, embedding: emb) }
             for (id, emb) in result.refreshed { try await store.updateSpeakerEmbedding(id: id, emb) }
             for i in segments.indices {
@@ -167,6 +167,19 @@ final class MeetingSession {
         try? await store.renameSpeaker(from: old, to: new)
     }
 
+    /// Writes the shown meeting as Markdown where the user chooses.
+    func export() async {
+        guard let meeting else { return }
+        if let error = await MeetingExport.save(meeting, segments: segments, insights: insights) { errorMessage = error }
+    }
+
+    /// Saves the user's notes for the shown meeting. Called on every keystroke; the write is one UPDATE.
+    func setNotes(_ notes: String) async {
+        guard let meeting, meeting.notes != notes else { return }
+        self.meeting?.notes = notes
+        try? await store.setNotes(meetingId: meeting.id, notes)
+    }
+
     /// The user answered the checkpoint prompt with "keep going". Nothing else changes.
     func continueSession() {
         checkpointPromptVisible = false
@@ -193,6 +206,10 @@ final class MeetingSession {
     }
 
     private func receive(_ segment: TranscriptSegment) {
+        var segment = segment
+        if segment.isFinal, let fixed = library.vocabulary.correct(segment.text) {
+            segment.heard = segment.text; segment.text = fixed
+        }
         if let i = segments.firstIndex(where: { $0.id == segment.id }) {
             segments[i] = segment
         } else {

@@ -99,6 +99,8 @@ enum Schema {
         "ALTER TABLE meetings ADD COLUMN summary TEXT",
         "ALTER TABLE segments ADD COLUMN speaker_name TEXT",
         "ALTER TABLE sources ADD COLUMN modified_at REAL",
+        "ALTER TABLE segments ADD COLUMN heard TEXT",
+        "ALTER TABLE meetings ADD COLUMN notes TEXT",
     ]
     static let sql = """
     CREATE TABLE IF NOT EXISTS sources (

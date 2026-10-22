@@ -83,3 +83,25 @@ for the summary; something audible on the system output while recording (for exa
   `element_token`, then `press_key return` with the same token.
 - Proven 2026-10-21 (run `fix-all`, `transcript-speaker-labels.txt`): meeting 6's four lines read
   `Speaker 1, system audio` with help `Speaker 1 · system audio`.
+
+### Build 39 (UX)
+- The section picker's third segment reads "Insights (N)" when the meeting has insights.
+- Summary shows one status strip (`id=summaryStatus`): "Summary by <model>" with "Summarize again",
+  or the blocking reason with a "Chat settings" button, or "Not summarized yet" with "Summarize meeting"
+  (proof: `build/verify/evidence/ux/summary-strip.png`).
+- With no meetings at all the detail pane shows "Your first meeting" with three steps and either
+  "Start transcribing" or "Not ready yet: …" plus "Open Setup". Not driven on the harness, whose
+  database already holds meetings.
+
+### Build 46 (notes, export, calendar titles)
+- Section picker has a fourth segment, Notes, which reads "Notes •" once the meeting has notes.
+  Proved 2026-10-22 (run `issues`, `notes-tab.png`): `set_value` on `meetingNotes` for meeting 6
+  wrote `meetings.notes` = "Verify note: order wicks by Friday." and the segment relabelled.
+- Export button (`exportMeeting`, ⌘E, File › Export Meeting…) opens a save panel named
+  `<yyyy-mm-dd> <title>.md`. Proved 2026-10-22 (`save-panel.png`): the panel opened with the
+  expected name. The Save click in that out-of-process panel came back `unverifiable` and the AX
+  window then went unresolved, so no file was written through the UI. The rendered document was
+  proved instead by a standalone `swiftc` probe of `MeetingExport.markdown` on meeting 6's rows
+  (`export-meeting-6.md`): Notes, Summary, Insights with sources, and only final transcript lines.
+- New meetings take the calendar event's title when Settings › Meetings › Calendar is on and
+  access was granted. Not driven: the Calendars permission prompt belongs to the user.

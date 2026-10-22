@@ -33,6 +33,8 @@ struct Meeting: Identifiable, Hashable, Sendable {
     var endedAt: Date?
     /// Markdown written by the on-device model after the meeting ends.
     var summary: String?
+    /// The user's own notes, typed under the Notes section at any time.
+    var notes: String = ""
 }
 
 /// Which audio stream a line came from. The mic is always the user; system audio is everyone else,
@@ -51,6 +53,8 @@ struct TranscriptSegment: Identifiable, Hashable, Sendable {
     var startSec: Double
     var endSec: Double
     var isFinal: Bool
+    /// The engine's words before a vocabulary correction changed `text`; nil when nothing was changed.
+    var heard: String? = nil
 }
 
 /// A voice heard in earlier meetings, with its wespeaker embedding so it is recognised again.

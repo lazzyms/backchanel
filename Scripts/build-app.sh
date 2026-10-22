@@ -1,9 +1,12 @@
 #!/bin/zsh
 # Builds Backchannel with xcodebuild (needed so MLX Metal shaders compile) and
 # assembles build/Backchannel.app. Usage: Scripts/build-app.sh [debug|release]
-# CODESIGN_IDENTITY overrides the signing identity (a SHA-1 or a name). When unset,
-# the first "Apple Development" identity in the keychain is used, else ad-hoc ("-").
-# A stable identity keeps macOS privacy grants across reinstalls; ad-hoc does not.
+# CODESIGN_IDENTITY overrides the signing identity (a SHA-1 or a name). When unset, the
+# first "Developer ID Application" identity in the keychain is used, else the first
+# "Apple Development" one, else ad-hoc ("-"). A stable identity keeps macOS privacy grants
+# across reinstalls; ad-hoc does not. A Developer ID signature gets the hardened runtime and a
+# secure timestamp, and drops get-task-allow, which is what notarization (Scripts/release.sh)
+# requires. Set CODESIGN_IDENTITY to the Apple Development identity to debug such a build.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 CONFIG="${1:-debug}"
@@ -11,9 +14,18 @@ DERIVED="build/DerivedData"
 APP="build/Backchannel.app"
 
 if [[ -z "${CODESIGN_IDENTITY:-}" ]]; then
-  CODESIGN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
-    | sed -nE 's/^ *[0-9]+\) ([0-9A-F]{40}) "Apple Development:.*/\1/p' | head -n 1)"
+  IDENTITIES="$(security find-identity -v -p codesigning 2>/dev/null)"
+  for kind in "Developer ID Application" "Apple Development"; do
+    CODESIGN_IDENTITY="$(print -r -- "$IDENTITIES" \
+      | sed -nE "s/^ *[0-9]+\) ([0-9A-F]{40}) \"$kind:.*/\1/p" | head -n 1)"
+    [[ -n "$CODESIGN_IDENTITY" ]] && break
+  done
   CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
+fi
+IDENTITY_NAME="$(security find-identity -v -p codesigning 2>/dev/null | grep -F "$CODESIGN_IDENTITY" | sed -nE 's/.*"(.*)"$/\1/p' | head -n 1)"
+SIGN_FLAGS=(--entitlements Resources/Backchannel.entitlements)
+if [[ "$IDENTITY_NAME" == "Developer ID Application:"* ]]; then
+  SIGN_FLAGS=(--entitlements Resources/Backchannel.release.entitlements --options runtime --timestamp)
 fi
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 
@@ -39,6 +51,6 @@ if [[ -d Resources/AppIcon.icon ]]; then
     --output-partial-info-plist "$DERIVED/icon.plist" --compile "$APP/Contents/Resources" \
     Resources/AppIcon.icon >/dev/null
 fi
-codesign --force --sign "$CODESIGN_IDENTITY" --entitlements Resources/Backchannel.entitlements --identifier dev.maulik.backchannel "$APP"
+codesign --force --sign "$CODESIGN_IDENTITY" "${SIGN_FLAGS[@]}" --identifier dev.maulik.backchannel "$APP"
 [[ "$CODESIGN_IDENTITY" == "-" ]] && SIGNED_WITH="ad-hoc" || SIGNED_WITH="$CODESIGN_IDENTITY"
 echo "built $APP (build $BUILD_NUMBER, signed with $SIGNED_WITH)"

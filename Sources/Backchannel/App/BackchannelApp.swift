@@ -25,6 +25,11 @@ struct BackchannelApp: App {
                     .keyboardShortcut("r", modifiers: [.command, .shift])
                     .disabled(model.session.state != .idle && model.session.state != .recording)
             }
+            CommandGroup(after: .saveItem) {
+                Button("Export Meeting…") { Task { await model.session.export() } }
+                    .keyboardShortcut("e", modifiers: .command)
+                    .disabled(model.session.meeting == nil)
+            }
         }
 
         Settings { SettingsView(model: model) }
@@ -82,7 +87,32 @@ final class AppModel {
     var meetings: [Meeting] = []
     var insightCount = 0
     var settingsTab: SettingsTab = .setup
+    /// Which page the main window shows. Lives here so a citation in Ask can open Sources.
+    var page: Page = .meetings
+    /// A source another page asked Sources to show. Sources reads it once and clears it.
+    var requestedSource: Source?
     var fatalError: String?
+
+    /// The one background job to show in the window, longest-running kinds first. nil when idle.
+    /// Replaces alerts for work that needs no answer from the user.
+    var backgroundWork: (text: String, progress: Double?)? {
+        if let id = models.downloading { return ("Downloading \(id)…", models.progress) }
+        if let id = chatModels.downloading { return ("Downloading \(id)…", chatModels.progress) }
+        if library.reembedding { return ("Re-embedding \(library.sources.count) sources with \(library.embedderName)…", nil) }
+        if let n = library.importing.first {
+            let more = library.importing.count - 1
+            return (more > 0 ? "Importing \(n) and \(more) more…" : "Importing \(n)…", nil)
+        }
+        if watcher.scanning { return ("Scanning watched folders…", nil) }
+        return nil
+    }
+
+    /// Opens the source with this title under Sources. A title no source has does nothing.
+    func openSource(titled title: String) {
+        guard let s = library.sources.first(where: { $0.title == title }) else { return }
+        requestedSource = s
+        page = .sources
+    }
 
     private init() {
         let store: Store
@@ -123,7 +153,8 @@ final class AppModel {
     func toggleTranscribing() {
         switch session.state {
         case .idle:
-            let title = "Meeting " + Date().formatted(date: .abbreviated, time: .shortened)
+            let title = CalendarTitles.currentEventTitle()
+                ?? "Meeting " + Date().formatted(date: .abbreviated, time: .shortened)
             Task { await session.start(title: title) }
         case .recording:
             Task { await session.stop() }
@@ -157,12 +188,11 @@ enum Page: String, CaseIterable, Identifiable {
 
 struct ContentView: View {
     @Bindable var model: AppModel
-    @State private var page: Page? = .meetings
     @State private var windowID = UUID()
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $page) {
+            List(selection: Binding<Page?>(get: { model.page }, set: { if let p = $0 { model.page = p } })) {
                 ForEach(Page.allCases) { p in
                     Label(p.title, systemImage: p.symbol).tag(p)
                 }
@@ -170,6 +200,17 @@ struct ContentView: View {
             .navigationSplitViewColumnWidth(min: 150, ideal: 170, max: 220)
             .safeAreaInset(edge: .bottom) {
                 VStack(alignment: .leading, spacing: 8) {
+                    if let work = model.backgroundWork {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                ProgressView().controlSize(.mini)
+                                Text(work.text).font(.caption).lineLimit(2)
+                            }
+                            if let p = work.progress { ProgressView(value: p).controlSize(.small) }
+                        }
+                        .accessibilityIdentifier("backgroundWork")
+                        .transition(.opacity)
+                    }
                     Label("Powered by \(model.models.selected.name)", systemImage: "cpu")
                         .font(.caption)
                         .fixedSize(horizontal: false, vertical: true)
@@ -183,9 +224,9 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         } detail: {
-            switch page ?? .meetings {
+            switch model.page {
             case .meetings: MeetingsView(model: model)
-            case .ask: AskView(chat: model.chat, meetings: model.meetings)
+            case .ask: AskView(model: model)
             case .sources: SourcesView(model: model)
             case .stats: StatsView(model: model)
             }
