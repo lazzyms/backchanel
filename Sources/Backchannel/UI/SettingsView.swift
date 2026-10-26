@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The Settings tabs. Views that open Settings for one purpose (the "Models…" link under Sources)
 /// set `AppModel.settingsTab` first; a plain open starts at Setup.
-enum SettingsTab: Hashable { case setup, embedding, chat, folders, meetings }
+enum SettingsTab: Hashable { case setup, embedding, chat, folders, meetings, about }
 
 struct SettingsView: View {
     @Bindable var model: AppModel
@@ -25,6 +25,9 @@ struct SettingsView: View {
             }
             Tab("Meetings", systemImage: "waveform", value: .meetings) {
                 MeetingSettingsView(session: model.session, library: model.library)
+            }
+            Tab("About", systemImage: "heart", value: .about) {
+                AboutSettingsView()
             }
         }
         .frame(width: 560, height: 480)
@@ -246,5 +249,23 @@ struct WatchedFoldersView: View {
         panel.allowsMultipleSelection = true
         panel.prompt = "Watch"
         if panel.runModal() == .OK { panel.urls.forEach { watcher.add($0) } }
+    }
+}
+
+/// Links about the project, including the GitHub Sponsors profile.
+struct AboutSettingsView: View {
+    private static let sponsorURL = URL(string: "https://github.com/sponsors/lazzyms")!
+
+    var body: some View {
+        Form {
+            Section {
+                Link(destination: Self.sponsorURL) {
+                    Label("Sponsor lazzyms on GitHub", systemImage: "heart.fill")
+                }
+            } footer: {
+                Text("Backchannel is free. Sponsoring helps keep it going.")
+            }
+        }
+        .formStyle(.grouped)
     }
 }

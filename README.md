@@ -177,3 +177,9 @@ Resources/        Info.plist, entitlements, AppIcon.icon (Icon Composer bundle)
 ## License
 
 MIT. See [LICENSE](LICENSE). The Swift packages it builds on are MIT (EmbeddingGemma2Swift, mlx-swift-lm) and Apache 2.0 (FluidAudio, swift-transformers, swift-huggingface); model weights downloaded from the Hugging Face Hub carry their own licenses.
+
+## Support
+
+If Backchannel is useful to you, consider [sponsoring the project on GitHub](https://github.com/sponsors/lazzyms).
+
+<iframe src="https://github.com/sponsors/lazzyms/button" title="Sponsor lazzyms" height="32" width="114" style="border: 0; border-radius: 6px;"></iframe>
